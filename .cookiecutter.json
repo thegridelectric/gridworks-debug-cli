@@ -1,0 +1,14 @@
+{
+  "_output_dir": "/Users/Andrew/git/gridworks",
+  "_template": "gh:cjolowicz/cookiecutter-hypermodern-python",
+  "author": "https://gridworks-consulting.com/",
+  "copyright_year": "2023",
+  "development_status": "Development Status :: 3 - Alpha",
+  "email": "gridworks@gridworks-consulting.com",
+  "friendly_name": "Gridworks Debug Cli",
+  "github_user": "anschweitzer",
+  "license": "MIT",
+  "package_name": "gwdcli",
+  "project_name": "gridworks-debug-cli",
+  "version": "0.0.0"
+}
