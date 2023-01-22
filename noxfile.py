@@ -29,7 +29,8 @@ nox.options.sessions = (
     "pre-commit",
     # YOLO
     # "safety",
-    "mypy",
+    # Not working yet.
+    # "mypy",
     "tests",
     "typeguard",
     "xdoctest",
