@@ -1,6 +1,6 @@
 import asyncio
-import asyncio_mqtt as aiomqtt
 
+import asyncio_mqtt as aiomqtt
 from gwproto.messages import Problems
 
 from gwdcli.events.models import AnyEvent
@@ -10,9 +10,10 @@ from gwdcli.events.models import MQTTFullySubscribedEvent
 from gwdcli.events.models import MQTTParseException
 from gwdcli.events.settings import MQTTClient
 
+
 async def run_mqtt_client(
-        settings: MQTTClient,
-        queue: asyncio.Queue,
+    settings: MQTTClient,
+    queue: asyncio.Queue,
 ):
     delay = settings.reconnect_min_delay
     try:
@@ -24,7 +25,13 @@ async def run_mqtt_client(
                     delay = settings.reconnect_min_delay
                     async with client.messages() as messages:
                         await client.subscribe("gw/#")
-                        queue.put_nowait(GWDEvent(event=MQTTFullySubscribedEvent(PeerName=settings.hostname)))
+                        queue.put_nowait(
+                            GWDEvent(
+                                event=MQTTFullySubscribedEvent(
+                                    PeerName=settings.hostname
+                                )
+                            )
+                        )
                         async for message in messages:
                             message_str = message.payload.decode("utf-8")
                             result = AnyEvent.from_str(message_str)
@@ -48,7 +55,7 @@ async def run_mqtt_client(
                         event=MQTTException(
                             PeerName=settings.hostname,
                             was_connected=connected,
-                            exception = mqtt_error,
+                            exception=mqtt_error,
                             next_reconnect_delay=delay,
                             will_reconnect=True,
                         )

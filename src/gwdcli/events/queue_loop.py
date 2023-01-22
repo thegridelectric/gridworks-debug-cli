@@ -18,6 +18,7 @@ async def queue_loop(settings: EventsSettings, queue: asyncio.Queue):
         await handle_queue_item(item)
         queue.task_done()
 
+
 async def handle_gwdevent(gwdevent: GWDEvent):
     rich.print(gwdevent)
     match gwdevent.event:

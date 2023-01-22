@@ -1,15 +1,17 @@
 from pathlib import Path
 from typing import Optional
 
+import xdg
 from pydantic import BaseModel
 from pydantic import BaseSettings
 from pydantic import SecretStr
 from pydantic import validator
-import xdg
+
 
 RELATIVE_APP_PATH = Path("gridworks/debug-cli/events")
 CONFIG_FILE = "gwd.events.config.json"
 CSV_FILE = "events.csv"
+
 
 class Paths(BaseModel):
     config_path: str | Path = ""
@@ -41,8 +43,10 @@ class Paths(BaseModel):
         self.config_dir.mkdir(mode=mode, parents=parents, exist_ok=exist_ok)
         self.data_dir.mkdir(mode=mode, parents=parents, exist_ok=exist_ok)
 
+
 class MQTTClient(BaseModel):
     """Settings for connecting to an MQTT Broker"""
+
     hostname: str = "localhost"
     port: int = 1883
     keepalive: int = 60
@@ -55,9 +59,12 @@ class MQTTClient(BaseModel):
 
     def constructor_dict(self) -> dict:
         return dict(
-            self.dict(exclude={"password", "reconnect_min_delay", "reconnect_max_delay"}),
-            password=self.password.get_secret_value()
+            self.dict(
+                exclude={"password", "reconnect_min_delay", "reconnect_max_delay"}
+            ),
+            password=self.password.get_secret_value(),
         )
+
 
 class S3Settings(BaseModel):
     bucket: str = ""
@@ -71,9 +78,11 @@ class S3Settings(BaseModel):
     def synced_key(self, subdir: str) -> str:
         return f"{self.bucket}/{self.subprefix(subdir)}"
 
+
 class SyncSettings(BaseModel):
     s3: S3Settings = S3Settings()
     num_dirs_to_sync: int = 4
+
 
 class EventsSettings(BaseSettings):
     paths: Paths = Paths()
@@ -81,7 +90,9 @@ class EventsSettings(BaseSettings):
     mqtt: MQTTClient = MQTTClient()
 
     @classmethod
-    def load(cls, config_path: Path = Paths().config_path) -> "EventsSettings":
+    def load(
+        cls, config_path: Path = Paths().config_path  # noqa: B008
+    ) -> "EventsSettings":
         paths = Paths(config_path=config_path)
         if paths.config_path.exists():
             settings = EventsSettings.parse_file(paths.config_path)
@@ -90,5 +101,3 @@ class EventsSettings(BaseSettings):
         else:
             settings = EventsSettings(paths=paths)
         return settings
-
-

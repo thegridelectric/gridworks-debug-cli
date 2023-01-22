@@ -138,6 +138,7 @@ def precommit(session: Session) -> None:
     if args and args[0] == "install":
         activate_virtualenv_in_precommit_hooks(session)
 
+
 # Safety gives us red messages about upgrading to non-free version.
 # Disabling for now.
 # @session(python=python_versions[0])

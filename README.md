@@ -21,10 +21,7 @@
 [pre-commit]: https://github.com/pre-commit/pre-commit
 [black]: https://github.com/psf/black
 
-Internal debugging tools for Gridworks systems. 
-
-
-
+Internal debugging tools for Gridworks systems.
 
 ## Features
 

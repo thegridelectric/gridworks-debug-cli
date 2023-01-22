@@ -1,18 +1,23 @@
-
 from pathlib import Path
 
 from rich.console import Console
 
 from gwdcli.events.models import AnyEvent
 
+
 console = Console()
+
 
 def show_dir(directory: str, src: str = "", n: int = 0):
     path = Path(directory)
-    console.print(f"Searching for event json files in \[{path}\]")
-    parsed_events = AnyEvent.from_directories([path], sort=True, ignore_validation_errors=True)
+    console.print(rf"Searching for event json files in \[{path}\]")
+    parsed_events = AnyEvent.from_directories(
+        [path], sort=True, ignore_validation_errors=True
+    )
     console.print(f"Found {len(parsed_events)} files parseable as events.")
-    df = AnyEvent.to_dataframe(parsed_events, columns=["TimeNS", "TypeName", "Src", "other_fields"])
+    df = AnyEvent.to_dataframe(
+        parsed_events, columns=["TimeNS", "TypeName", "Src", "other_fields"]
+    )
     if src:
         df = df.loc[df["Src"] == src]
         console.print(f"Found {len(df)} events for Src {src}.")
@@ -22,6 +27,7 @@ def show_dir(directory: str, src: str = "", n: int = 0):
         df = df[:n]
 
     from rich.table import Table
+
     table = Table(*(["Time"] + list(df.columns)))
     table.columns[0].header_style = "green"
     table.columns[0].style = "green"
@@ -34,9 +40,7 @@ def show_dir(directory: str, src: str = "", n: int = 0):
         row = df.loc[time]
         row_vals = [
             time.isoformat(timespec="milliseconds"),
-            row.TypeName.removeprefix(
-                "gridworks.event."
-            ).removeprefix("comm."),
+            row.TypeName.removeprefix("gridworks.event.").removeprefix("comm."),
         ]
         if "Src" in df.columns:
             row_vals.append(row.Src)

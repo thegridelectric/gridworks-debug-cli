@@ -2,26 +2,31 @@ import asyncio
 import time
 from datetime import datetime
 
+from anyio import to_thread
 from rich import box
 from rich.align import Align
-from rich.console import Group
 from rich.console import Console
+from rich.console import Group
 from rich.layout import Layout
 from rich.live import Live
 from rich.panel import Panel
-from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
+from rich.progress import BarColumn
+from rich.progress import Progress
+from rich.progress import SpinnerColumn
 from rich.progress import TaskID
+from rich.progress import TextColumn
 from rich.syntax import Syntax
 from rich.table import Table
-
-from anyio import to_thread
 
 from gwdcli.events.settings import EventsSettings
 
 
 # noinspection PyUnusedLocal
-async def console_task(settings: EventsSettings, console: Console, queue: asyncio.Queue):
+async def console_task(
+    settings: EventsSettings, console: Console, queue: asyncio.Queue
+):
     await to_thread.run_sync(LiveLayout.loop)
+
 
 class LiveLayout:
     layout: Layout
@@ -54,8 +59,7 @@ class LiveLayout:
         self.job_progress.add_task("[cyan]Mixing", total=400)
         self.overall_progress = Progress()
         self.overall_task = self.overall_progress.add_task(
-            "All Jobs",
-            total=int(sum(task.total for task in self.job_progress.tasks))
+            "All Jobs", total=int(sum(task.total for task in self.job_progress.tasks))
         )
         self.progress_table = Table.grid(expand=True)
         self.progress_table.add_row(
@@ -65,7 +69,9 @@ class LiveLayout:
                 border_style="green",
                 padding=(2, 2),
             ),
-            Panel(self.job_progress, title="[b]Jobs", border_style="red", padding=(1, 2)),
+            Panel(
+                self.job_progress, title="[b]Jobs", border_style="red", padding=(1, 2)
+            ),
         )
 
     @classmethod
@@ -79,6 +85,7 @@ class LiveLayout:
                         helper.job_progress.advance(job.id)
                 completed = sum(task.completed for task in helper.job_progress.tasks)
                 helper.overall_progress.update(helper.overall_task, completed=completed)
+
 
 def make_layout() -> Layout:
     layout = Layout(name="root")
@@ -188,5 +195,3 @@ def ratio_resolve(total: int, edges: List[Edge]) -> List[int]:
     """
     syntax = Syntax(code, "python", line_numbers=True)
     return syntax
-
-

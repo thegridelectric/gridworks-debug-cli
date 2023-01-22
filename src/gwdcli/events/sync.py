@@ -1,6 +1,6 @@
 import asyncio
 from pathlib import Path
-from subprocess import CalledProcessError
+from subprocess import CalledProcessError  # noqa: S404
 from typing import Optional
 
 from aiobotocore.session import AioSession
@@ -21,13 +21,11 @@ from gwdcli.events.models import SyncStartEvent
 from gwdcli.events.settings import EventsSettings
 from gwdcli.events.settings import S3Settings
 
-async def get_eventstore_subdirs(
-    settings: S3Settings,
-    **s3_client_args
-) -> list[str]:
+
+async def get_eventstore_subdirs(settings: S3Settings, **s3_client_args) -> list[str]:
     dirs = []
     session = AioSession(profile=settings.profile)
-    async with session.create_client('s3', **s3_client_args) as client:
+    async with session.create_client("s3", **s3_client_args) as client:
         more = True
         continuation_token = ""
         list_args = dict(
@@ -50,11 +48,12 @@ async def get_eventstore_subdirs(
             more = result.get("IsTruncated", False)
     return sorted(dirs)
 
+
 def make_sync_command(
     bucket: str,
     prefix: str,
     profile: str,
-    dest_base_path: str | Path = Path("."),
+    dest_base_path: str | Path = Path("."),  # noqa: B008
     region: str = "",
 ) -> list[str]:
     cmd = [
@@ -71,9 +70,14 @@ def make_sync_command(
         cmd.extend(["--region", region])
     return cmd
 
-def generate_directory_csv(directory_path: Path, csv_path: Path) -> Result[Optional[DataFrame], Exception]:
+
+def generate_directory_csv(
+    directory_path: Path, csv_path: Path
+) -> Result[Optional[DataFrame], Exception]:
     try:
-        parsed_events = AnyEvent.from_directories([directory_path], sort=True, ignore_validation_errors=True)
+        parsed_events = AnyEvent.from_directories(
+            [directory_path], sort=True, ignore_validation_errors=True
+        )
         if parsed_events:
             df = AnyEvent.to_dataframe(parsed_events)
             df.to_csv(csv_path)
@@ -83,7 +87,10 @@ def generate_directory_csv(directory_path: Path, csv_path: Path) -> Result[Optio
         return Err(e)
     return Ok(df)
 
-async def sync_dir_and_generate_csv(settings: EventsSettings, subdir: str, queue: asyncio.Queue):
+
+async def sync_dir_and_generate_csv(
+    settings: EventsSettings, subdir: str, queue: asyncio.Queue
+):
     s3 = settings.sync.s3
     synced_key = s3.synced_key(subdir)
     queue.put_nowait(GWDEvent(event=SyncStartEvent(synced_key=synced_key)))
@@ -102,30 +109,33 @@ async def sync_dir_and_generate_csv(settings: EventsSettings, subdir: str, queue
                 event=ProblemEvent(
                     ProblemType=Problems.warning,
                     Summary=f"ERROR sync failure {e} for {synced_key}",
-                    Details=(
-                        f"stdout: {str(e.stdout)}\n"
-                        f"stderr: {str(e.stderr)}"
-                    )
+                    Details=f"stdout: {str(e.stdout)}\n" f"stderr: {str(e.stderr)}",
                 )
-            ))
+            )
+        )
         return
     csv_path = settings.paths.subdir_csv_path(subdir)
-    result = await to_process.run_sync(generate_directory_csv, settings.paths.data_subdir(subdir), csv_path)
+    result = await to_process.run_sync(
+        generate_directory_csv, settings.paths.data_subdir(subdir), csv_path
+    )
     if result.is_ok():
-        queue.put_nowait(GWDEvent(event=SyncCompleteEvent(synced_key=synced_key, csv_path=csv_path)))
+        queue.put_nowait(
+            GWDEvent(event=SyncCompleteEvent(synced_key=synced_key, csv_path=csv_path))
+        )
     else:
         queue.put_nowait(
             GWDEvent(
                 event=ProblemEvent(
                     ProblemType=Problems.error,
-                    Summary=f"ERROR in generate_directory_csv: {result.value}"
+                    Summary=f"ERROR in generate_directory_csv: {result.value}",
                 )
             )
         )
 
+
 async def sync(settings: EventsSettings, queue: asyncio.Queue) -> None:
     subdirs = await get_eventstore_subdirs(settings.sync.s3)
-    subdirs = subdirs[-settings.sync.num_dirs_to_sync:]
+    subdirs = subdirs[-settings.sync.num_dirs_to_sync :]
     if subdirs:
         # allow first sync to run without competition
         await sync_dir_and_generate_csv(settings, subdirs[-1], queue)

@@ -25,11 +25,11 @@ class AnyEvent(EventBase, extra=Extra.allow):
 
     def for_pandas(
         self,
-        collapse_other_fields = True,
-        other_field_name = "other_fields",
+        collapse_other_fields=True,
+        other_field_name="other_fields",
     ) -> dict:
         d = self.dict(include=EventBase.__fields__.keys())
-        d["TimeNS"] = pd.Timestamp(self.TimeNS, unit='ns')
+        d["TimeNS"] = pd.Timestamp(self.TimeNS, unit="ns")
         other_fields = self.other_fields()
         if collapse_other_fields:
             d[other_field_name] = json.dumps(other_fields)
@@ -119,45 +119,60 @@ class AnyEvent(EventBase, extra=Extra.allow):
                         events.append(result.value)
             else:
                 error = result.value
-                if not ignore_validation_errors or not isinstance(error, ValidationError):
+                if not ignore_validation_errors or not isinstance(
+                    error, ValidationError
+                ):
                     raise error
         if sort:
             events = sorted(events, key=lambda event: event.TimeNS)
         return events
 
     @classmethod
-    def to_dataframe(cls, events: Sequence["AnyEvent"], sort_index: bool = True, **kwargs) -> pd.DataFrame:
+    def to_dataframe(
+        cls, events: Sequence["AnyEvent"], sort_index: bool = True, **kwargs
+    ) -> pd.DataFrame:
         df = pd.DataFrame.from_records(
-            [e.for_pandas() for e in events],
-            index="TimeNS",
-            **kwargs
+            [e.for_pandas() for e in events], index="TimeNS", **kwargs
         )
         if sort_index:
             df.sort_index(inplace=True)
         return df
 
+
 class GWDEvent(BaseModel):
     """This class allows the a message processor to determine that this is an event _internal_ to the gwd client itself,
     not an externally generated event being reported on."""
+
     event: EventBase
+
 
 class SyncStartEvent(EventBase):
     synced_key: str
-    TypeName: Literal["gridworks.event.debug_cli.sync.start"] = "gridworks.event.debug_cli.sync.start"
+    TypeName: Literal[
+        "gridworks.event.debug_cli.sync.start"
+    ] = "gridworks.event.debug_cli.sync.start"
+
 
 class SyncCompleteEvent(EventBase):
     synced_key: str
     csv_path: Path
-    TypeName: Literal["gridworks.event.debug_cli.sync.complete"] = "gridworks.event.debug_cli.sync.complete"
+    TypeName: Literal[
+        "gridworks.event.debug_cli.sync.complete"
+    ] = "gridworks.event.debug_cli.sync.complete"
+
 
 class MQTTParseException(ProblemEvent):
     topic: str
-    TypeName: Literal["gridworks.event.debug_cli.mqtt_parse_exception"] = "gridworks.event.debug_cli.mqtt_parse_exception"
+    TypeName: Literal[
+        "gridworks.event.debug_cli.mqtt_parse_exception"
+    ] = "gridworks.event.debug_cli.mqtt_parse_exception"
+
 
 class MQTTFullySubscribedEvent(CommEvent):
     TypeName: Literal[
         "gridworks.event.debug_cli.mqtt_fully_subscribed"
     ] = "gridworks.event.debug_cli.mqtt_fully_subscribed"
+
 
 class MQTTException(CommEvent):
     was_connected: bool
@@ -170,5 +185,3 @@ class MQTTException(CommEvent):
 
     class Config:
         arbitrary_types_allowed: bool = True
-
-
