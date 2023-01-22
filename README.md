@@ -1,8 +1,5 @@
 # Gridworks Debug Cli
 
-Internal debugging tools for Gridworks systems. 
-
-
 [![PyPI](https://img.shields.io/pypi/v/gridworks-debug-cli.svg)][pypi_]
 [![Status](https://img.shields.io/pypi/status/gridworks-debug-cli.svg)][status]
 [![Python Version](https://img.shields.io/pypi/pyversions/gridworks-debug-cli)][python version]
@@ -23,6 +20,11 @@ Internal debugging tools for Gridworks systems.
 [codecov]: https://app.codecov.io/gh/anschweitzer/gridworks-debug-cli
 [pre-commit]: https://github.com/pre-commit/pre-commit
 [black]: https://github.com/psf/black
+
+Internal debugging tools for Gridworks systems. 
+
+
+
 
 ## Features
 

@@ -19,13 +19,19 @@ classifiers = [
 Changelog = "https://github.com/anschweitzer/gridworks-debug-cli/releases"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.10"
 click = ">=8.0.1"
 typer = "^0.7.0"
 gridworks-protocol = "^0.2.3"
 pydantic = "^1.10.4"
 pandas = "^1.5.3"
 rich = "^13.2.0"
+xdg = "^5.1.1"
+anyio = "^3.6.2"
+aiobotocore = "^2.4.2"
+types-aiobotocore = {extras = ["essential"], version = "^2.4.2"}
+result = "^0.9.0"
+asyncio-mqtt = "^0.16.1"
 
 [tool.poetry.dev-dependencies]
 Pygments = ">=2.10.0"
@@ -54,7 +60,7 @@ xdoctest = {extras = ["colors"], version = ">=0.15.10"}
 myst-parser = {version = ">=0.16.1"}
 
 [tool.poetry.scripts]
-gridworks-debug-cli = "gwdcli.__main__:main"
+gwd = "gwdcli.__main__:app"
 
 [tool.coverage.paths]
 source = ["src", "*/site-packages"]

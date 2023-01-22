@@ -1,12 +1,9 @@
 """Command-line interface."""
-import click
+import typer
+from gwdcli.events import app as events_app
 
-
-@click.command()
-@click.version_option()
-def main() -> None:
-    """Gridworks Debug Cli."""
-
+app = typer.Typer(no_args_is_help=True)
+app.add_typer(events_app, name="events")
 
 if __name__ == "__main__":
-    main(prog_name="gridworks-debug-cli")  # pragma: no cover
+    app()
