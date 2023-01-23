@@ -61,6 +61,7 @@ myst-parser = {version = ">=0.16.1"}
 
 [tool.poetry.scripts]
 gwd = "gwdcli.__main__:app"
+gwd-events = "gwdcli.events.__main__:app"
 
 [tool.pytest.ini_options]
 filterwarnings = "ignore::DeprecationWarning:botocore.*:"

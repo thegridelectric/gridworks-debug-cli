@@ -94,7 +94,7 @@ class AnyEvent(EventBase, extra=Extra.allow):
         try:
             with path.open() as f:
                 return cls.from_str(f.read())
-        except BaseException as e:
+        except Exception as e:
             return Err(e)
 
     @classmethod

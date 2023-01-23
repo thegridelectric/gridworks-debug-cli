@@ -37,7 +37,7 @@ async def run_mqtt_client(
                             result = AnyEvent.from_str(message_str)
                             if result.is_ok():
                                 if result.value is not None:
-                                    queue.put_nowait(GWDEvent(event=result.value))
+                                    queue.put_nowait(result.value)
                             else:
                                 queue.put_nowait(
                                     GWDEvent(
@@ -63,7 +63,7 @@ async def run_mqtt_client(
                 )
                 await asyncio.sleep(delay)
                 delay = min(delay * 2, settings.reconnect_max_delay)
-    except BaseException as e:
+    except Exception as e:
         queue.put_nowait(
             GWDEvent(
                 event=MQTTException(

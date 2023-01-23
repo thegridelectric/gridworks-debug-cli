@@ -7,16 +7,16 @@ from anyio import create_task_group
 from anyio import run
 from rich.console import Console
 
-# from gwdcli.events.console import console_task
+from gwdcli.events.queue_loop import AsyncQueueLooper
+from gwdcli.events.tui import TUI
 from gwdcli.events.mqtt import run_mqtt_client
-from gwdcli.events.queue_loop import queue_loop
 from gwdcli.events.settings import EventsSettings
 from gwdcli.events.settings import Paths
 from gwdcli.events.show_dir import show_dir
 from gwdcli.events.sync import sync
 
 
-app = typer.Typer(no_args_is_help=True)
+app = typer.Typer(no_args_is_help=True, pretty_exceptions_enable=False)
 app.command("dir")(show_dir)
 
 
@@ -67,12 +67,13 @@ def mkconfig(
 # noinspection PyUnusedLocal
 async def show_main(settings: EventsSettings, console: Console):
     settings.paths.mkdirs()
-    queue = asyncio.Queue()
+    async_queue = asyncio.Queue()
     async with create_task_group() as tg:
-        tg.start_soon(run_mqtt_client, settings.mqtt, queue)
-        tg.start_soon(sync, settings, queue)
-        tg.start_soon(queue_loop, settings, queue)
-        # tg.start_soon(console_task, settings, console, queue)
+        tui = TUI(settings)
+        tg.start_soon(run_mqtt_client, settings.mqtt, async_queue)
+        tg.start_soon(sync, settings, async_queue)
+        tg.start_soon(AsyncQueueLooper.loop_task, settings, async_queue, tui.queue)
+        tg.start_soon(tui.tui_task)
 
 
 if __name__ == "__main__":
