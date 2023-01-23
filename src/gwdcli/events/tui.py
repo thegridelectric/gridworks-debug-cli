@@ -1,10 +1,11 @@
-import time
 import queue
+import time
 from dataclasses import dataclass
 from dataclasses import field
 from datetime import datetime
 from datetime import timedelta
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 from anyio import to_thread
@@ -31,7 +32,7 @@ class SyncSpinnerData:
     style: str = "green"
     done_emoji: str = "white_check_mark"
     done: bool = False
-    start_time: datetime = field(default_factory = datetime.now)
+    start_time: datetime = field(default_factory=datetime.now)
     elapsed: timedelta = timedelta(0)
 
     def stop(self):
@@ -62,15 +63,19 @@ class SyncSpinners:
             if spinner_data.done:
                 renderables = (
                     Emoji(spinner_data.done_emoji),
-                    Text(f"{spinner_data.name}  {spinner_data.elapsed}", style=spinner_data.style)
+                    Text(
+                        f"{spinner_data.name}  {spinner_data.elapsed}",
+                        style=spinner_data.style,
+                    ),
                 )
             else:
                 renderables = (
                     Spinner(spinner_data.spinner_name, style=spinner_data.style),
-                    Text(f"{spinner_data.name}  ", style=spinner_data.style)
+                    Text(f"{spinner_data.name}  ", style=spinner_data.style),
                 )
             table.add_row(*renderables)
         return Panel(table, title="[b]Sync", border_style="blue")
+
 
 class TUI:
     settings: EventsSettings
@@ -82,10 +87,11 @@ class TUI:
     queue: queue.Queue
     gwd_text: Text
 
-
     def __init__(self, settings: EventsSettings):
         self.settings = settings
-        self.df = pd.read_csv(self.settings.paths.csv_path, index_col="TimeNS", parse_dates=True)
+        self.df = pd.read_csv(
+            self.settings.paths.csv_path, index_col="TimeNS", parse_dates=True
+        )
         self.queue = queue.Queue()
         self.gwd_text = Text()
         self.sync_spinners = SyncSpinners()
@@ -107,7 +113,9 @@ class TUI:
         )
         self.layout["header"].update(Header())
         self.layout["events"].update(self.event_table)
-        self.layout["GWDEvents"].update(Panel(self.gwd_text, title="[b]GWDEvents", border_style="green"))
+        self.layout["GWDEvents"].update(
+            Panel(self.gwd_text, title="[b]GWDEvents", border_style="green")
+        )
         self.layout["tree"].update(Panel(self.layout.tree, border_style="red"))
         self.layout["sync"].update(self.sync_spinners.panel())
 
@@ -176,12 +184,12 @@ class TUI:
         #
         pass
 
-    def handle_other(self, Any) -> None:
+    def handle_other(self, item: Any) -> None:
         pass
 
     def check_sync_queue(self):
         try:
-            match item:= self.queue.get(block=False):
+            match item := self.queue.get(block=False):
                 case GWDEvent():
                     self.handle_gwd_event(item)
                 case EventBase():
@@ -200,6 +208,7 @@ class TUI:
     async def tui_task(self):
         await to_thread.run_sync(self.loop)
 
+
 class Header:
     """Display header with clock."""
 
@@ -213,4 +222,3 @@ class Header:
             datetime.now().ctime().replace(":", "[blink]:[/]"),
         )
         return Panel(grid, style="white on blue")
-

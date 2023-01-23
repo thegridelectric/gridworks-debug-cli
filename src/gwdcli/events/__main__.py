@@ -7,13 +7,13 @@ from anyio import create_task_group
 from anyio import run
 from rich.console import Console
 
-from gwdcli.events.queue_loop import AsyncQueueLooper
-from gwdcli.events.tui import TUI
 from gwdcli.events.mqtt import run_mqtt_client
+from gwdcli.events.queue_loop import AsyncQueueLooper
 from gwdcli.events.settings import EventsSettings
 from gwdcli.events.settings import Paths
 from gwdcli.events.show_dir import show_dir
 from gwdcli.events.sync import sync
+from gwdcli.events.tui import TUI
 
 
 app = typer.Typer(no_args_is_help=True, pretty_exceptions_enable=False)

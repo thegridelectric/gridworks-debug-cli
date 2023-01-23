@@ -11,19 +11,29 @@ from typing import Any
 # from gwdcli.events.models import SyncStartEvent
 from gwdcli.events.settings import EventsSettings
 
-class AsyncQueueLooper:
 
+class AsyncQueueLooper:
     settings: EventsSettings
     async_queue: asyncio.Queue
     sync_queue: queue.Queue
 
-    def __init__(self, settings: EventsSettings, async_queue: asyncio.Queue, sync_queue: queue.Queue):
+    def __init__(
+        self,
+        settings: EventsSettings,
+        async_queue: asyncio.Queue,
+        sync_queue: queue.Queue,
+    ):
         self.settings = settings
         self.async_queue = async_queue
         self.sync_queue = sync_queue
 
     @classmethod
-    async def loop_task(cls, settings: EventsSettings, async_queue: asyncio.Queue, sync_queue: queue.Queue):
+    async def loop_task(
+        cls,
+        settings: EventsSettings,
+        async_queue: asyncio.Queue,
+        sync_queue: queue.Queue,
+    ):
         looper = AsyncQueueLooper(settings, async_queue, sync_queue)
         await looper.loop()
 
@@ -42,7 +52,6 @@ class AsyncQueueLooper:
     #             self.sync_queue.put_nowait(gwdevent.event)
     #         case ProblemEvent():
     #             pass
-
 
     async def handle_queue_item(self, item: Any):
         self.sync_queue.put_nowait(item)
