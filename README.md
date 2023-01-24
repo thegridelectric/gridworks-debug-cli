@@ -6,7 +6,7 @@
 [![License](https://img.shields.io/pypi/l/gridworks-debug-cli)][license]
 
 [![Read the documentation at https://gridworks-debug-cli.readthedocs.io/](https://img.shields.io/readthedocs/gridworks-debug-cli/latest.svg?label=Read%20the%20Docs)][read the docs]
-[![Tests](https://github.com/anschweitzer/gridworks-debug-cli/workflows/Tests/badge.svg)][tests]
+[![Tests](https://github.com/thegridelectric/gridworks-debug-cli/workflows/Tests/badge.svg)][tests]
 [![Codecov](https://app.codecov.io/gh/thegridelectric/gridworks-debug-cli/branch/main/graph/badge.svg)][codecov]
 thegridelectric
 
