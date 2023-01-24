@@ -1,8 +1,5 @@
 # Gridworks Debug Cli
 
-Internal debugging tools for Gridworks systems. 
-
-
 [![PyPI](https://img.shields.io/pypi/v/gridworks-debug-cli.svg)][pypi_]
 [![Status](https://img.shields.io/pypi/status/gridworks-debug-cli.svg)][status]
 [![Python Version](https://img.shields.io/pypi/pyversions/gridworks-debug-cli)][python version]
@@ -24,20 +21,83 @@ Internal debugging tools for Gridworks systems.
 [pre-commit]: https://github.com/pre-commit/pre-commit
 [black]: https://github.com/psf/black
 
+Internal debugging tools for Gridworks systems:
+
+```shell
+brew install awscli
+aws configure
+pip install gridworks-debug-cli
+gwd events mkconfig
+gwd events show
+```
+
+This tool will be maintained only as long as it is internally useful. YMMV.
+
 ## Features
 
-- TODO
+- Event viewing, either from local directory of events or from the cloud.
 
 ## Requirements
 
-- TODO
+- [awscli](https://aws.amazon.com/cli/). This should be installable
+  per [Amazon instructions](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) or on a
+  mac with:
+  ```shell
+  brew install awscli
+  ```
+- AWS credentials from Gridworks installed per
+  [Amazon instructions](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html) or:
+  ```shell
+  aws configure
+  ```
 
 ## Installation
 
 You can install _Gridworks Debug Cli_ via [pip] from [PyPI]:
 
-```console
-$ pip install gridworks-debug-cli
+Install awscli per per [Amazon instructions](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
+or on a mac with:
+
+```shell
+brew install awscli
+```
+
+Get AWS credentials from Gridworks and install them with:
+
+```shell
+aws configure
+```
+
+Install gridworks-debug-cli with:
+
+```shell
+pip install gridworks-debug-cli
+```
+
+Configure gridworks-debug-cli with:
+
+```shell
+gwd events mkconfig
+open $HOME/.config/gridworks/debug-cli/events/gwd.events.config.json
+```
+
+You **must** fill in values for the following keys with information from Gridworks:
+
+```json
+{
+  "mqtt": {
+    "hostname": "USE REAL VALUE",
+    "password": "USE REAL VALUE",
+    "username": "USE REAL VALUE"
+  },
+  "sync": {
+    "s3": {
+      "bucket": "USE REAL VALUE",
+      "prefix": "USE REAL VALUE",
+      "profile": "USE NAME YOU CHOSE in 'aws configure'"
+    }
+  }
+}
 ```
 
 ## Usage
