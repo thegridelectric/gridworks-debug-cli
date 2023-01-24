@@ -25,11 +25,21 @@ Internal debugging tools for Gridworks systems.
 
 ## Features
 
-- TODO
+- Event viewing, either from local directory of events or from the cloud.
 
 ## Requirements
 
-- TODO
+- [awscli](https://aws.amazon.com/cli/). This should be installable
+  per [Amazon instructions](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) or on a
+  mac with:
+  ```shell
+  brew install awscli
+  ```
+- AWS credentials from Gridworks installed per
+  [Amazon instructions](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html) or:
+  ```shell
+  aws configure
+  ```
 
 ## Installation
 
