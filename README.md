@@ -7,8 +7,7 @@
 
 [![Read the documentation at https://gridworks-debug-cli.readthedocs.io/](https://img.shields.io/readthedocs/gridworks-debug-cli/latest.svg?label=Read%20the%20Docs)][read the docs]
 [![Tests](https://github.com/thegridelectric/gridworks-debug-cli/workflows/Tests/badge.svg)][tests]
-[![Codecov](https://app.codecov.io/gh/thegridelectric/gridworks-debug-cli/branch/main/graph/badge.svg)][codecov]
-thegridelectric
+[![Codecov](https://codecov.io/gh/thegridelectric/gridworks-debug-cli/branch/main/graph/badge.svg)][codecov]
 
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)][pre-commit]
 [![Black](https://img.shields.io/badge/code%20style-black-000000.svg)][black]
