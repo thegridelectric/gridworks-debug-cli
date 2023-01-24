@@ -84,10 +84,16 @@ class SyncSettings(BaseModel):
     num_dirs_to_sync: int = 4
 
 
+class TUISettings(BaseModel):
+    displayed_events: int = 45
+    max_other_fields_width: int = 150
+
+
 class EventsSettings(BaseSettings):
     paths: Paths = Paths()
     sync: SyncSettings = SyncSettings()
     mqtt: MQTTClient = MQTTClient()
+    tui: TUISettings = TUISettings()
 
     @classmethod
     def load(

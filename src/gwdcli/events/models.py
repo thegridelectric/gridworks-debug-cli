@@ -23,19 +23,30 @@ class AnyEvent(EventBase, extra=Extra.allow):
     def other_fields(self) -> dict:
         return self.dict(exclude=EventBase.__fields__.keys())
 
-    def for_pandas(
+    def as_pandas_record(
         self,
         collapse_other_fields=True,
         other_field_name="other_fields",
     ) -> dict:
         d = self.dict(include=EventBase.__fields__.keys())
-        d["TimeNS"] = pd.Timestamp(self.TimeNS, unit="ns")
+        d["TimeNS"] = pd.Timestamp(self.TimeNS, unit="ns", tz="UTC")
         other_fields = self.other_fields()
         if collapse_other_fields:
             d[other_field_name] = json.dumps(other_fields)
         else:
             d.update(other_fields)
         return d
+
+    def as_dataframe(self, columns: Optional[list[str]]) -> pd.DataFrame:
+        if columns is None:
+            columns = ["TimeNS", "TypeName", "Src", "other_fields"]
+        row_dict = self.as_pandas_record()
+        time_ns = row_dict.pop("TimeNS")
+        return pd.DataFrame(
+            {col: [val] for col, val in row_dict.items()},
+            columns=columns,
+            index=pd.DatetimeIndex([time_ns], name="TimeNS"),
+        )
 
     @classmethod
     def from_event_dict(cls, d: dict) -> Result["AnyEvent", ValidationError]:
@@ -132,7 +143,7 @@ class AnyEvent(EventBase, extra=Extra.allow):
         cls, events: Sequence["AnyEvent"], sort_index: bool = True, **kwargs
     ) -> pd.DataFrame:
         df = pd.DataFrame.from_records(
-            [e.for_pandas() for e in events], index="TimeNS", **kwargs
+            [e.as_pandas_record() for e in events], index="TimeNS", **kwargs
         )
         if sort_index:
             df.sort_index(inplace=True)

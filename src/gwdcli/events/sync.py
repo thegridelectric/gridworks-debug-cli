@@ -3,6 +3,7 @@ from pathlib import Path
 from subprocess import CalledProcessError  # noqa: S404
 from typing import Optional
 
+import pandas as pd
 from aiobotocore.session import AioSession
 from anyio import create_task_group
 from anyio import run_process
@@ -72,15 +73,31 @@ def make_sync_command(
 
 
 def generate_directory_csv(
-    directory_path: Path, csv_path: Path
+    src_directory_path: Path,
+    dst_directory_csv_path: Path,
+    main_csv_path: Path,
 ) -> Result[Optional[DataFrame], Exception]:
     try:
         parsed_events = AnyEvent.from_directories(
-            [directory_path], sort=True, ignore_validation_errors=True
+            [src_directory_path], sort=True, ignore_validation_errors=True
         )
         if parsed_events:
             df = AnyEvent.to_dataframe(parsed_events)
-            df.to_csv(csv_path)
+            df.to_csv(dst_directory_csv_path)
+            if not main_csv_path.exists():
+                df.to_csv(main_csv_path)
+            else:
+                main_df = pd.read_csv(
+                    main_csv_path, index_col="TimeNS", parse_dates=True
+                )
+                main_ids = set(main_df["MessageId"].index)
+                directory_ids = set(df["MessageId"].index)
+                if not directory_ids.issubset(main_ids):
+                    main_df = pd.concat([main_df, df]).sort_index()
+                    main_df.drop_duplicates("MessageId", inplace=True)
+                    # with (dst_directory_csv_path.parent /  "log.txt").open("a") as f:
+                    #     f.write(f"{dst_directory_csv_path.name}  dir df: {len(df):4d}  new values:{int(not directory_ids.issubset(main_ids))}  main df: {x:4d} -> {y:4d} -> {z:4d}\n")
+                    main_df.to_csv(main_csv_path)
         else:
             df = None
     except Exception as e:
@@ -116,7 +133,10 @@ async def sync_dir_and_generate_csv(
         return
     csv_path = settings.paths.subdir_csv_path(subdir)
     result = await to_process.run_sync(
-        generate_directory_csv, settings.paths.data_subdir(subdir), csv_path
+        generate_directory_csv,
+        settings.paths.data_subdir(subdir),
+        csv_path,
+        settings.paths.csv_path,
     )
     if result.is_ok():
         queue.put_nowait(
