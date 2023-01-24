@@ -31,6 +31,8 @@ gwd events mkconfig
 gwd events show
 ```
 
+This tool will be maintained only as long as it is internally useful. YMMV.
+
 ## Features
 
 - Event viewing, either from local directory of events or from the cloud.

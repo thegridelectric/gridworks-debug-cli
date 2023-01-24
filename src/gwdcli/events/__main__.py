@@ -19,6 +19,8 @@ from gwdcli.events.tui import TUI
 app = typer.Typer(no_args_is_help=True, pretty_exceptions_enable=False)
 app.command("dir")(show_dir)
 
+typer_click_object = typer.main.get_command(app)
+
 
 @app.command()
 def show(config_path: Path = Paths().config_path):  # noqa: B008
