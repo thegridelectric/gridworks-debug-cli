@@ -1,7 +1,20 @@
 import asyncio
+import logging
+from typing import Any
 
 import asyncio_mqtt as aiomqtt
+from gwproto import CallableDecoder
+from gwproto import Decoders
+from gwproto import Message
+from gwproto import MQTTCodec
+from gwproto import create_message_payload_discriminator
+from gwproto.gs import GsPwr_Maker
+from gwproto.gt.gt_sh_status import GtShStatus_Maker
+from gwproto.gt.snapshot_spaceheat import SnapshotSpaceheat_Maker
 from gwproto.messages import Problems
+from result import Err
+from result import Ok
+from result import Result
 
 from gwdcli.events.models import AnyEvent
 from gwdcli.events.models import GWDEvent
@@ -11,11 +24,15 @@ from gwdcli.events.models import MQTTParseException
 from gwdcli.events.settings import MQTTClient
 
 
+logger = logging.getLogger("gwd.events")
+
+
 async def run_mqtt_client(
     settings: MQTTClient,
     queue: asyncio.Queue,
 ):
     delay = settings.reconnect_min_delay
+    decoder = GwdMQTTCodec()
     try:
         while True:
             connected = False
@@ -33,22 +50,8 @@ async def run_mqtt_client(
                             )
                         )
                         async for message in messages:
-                            message_str = message.payload.decode("utf-8")
-                            result = AnyEvent.from_str(message_str)
-                            if result.is_ok():
-                                if result.value is not None:
-                                    queue.put_nowait(result.value)
-                            else:
-                                queue.put_nowait(
-                                    GWDEvent(
-                                        event=MQTTParseException(
-                                            ProblemType=Problems.warning,
-                                            Summary=f"ERROR parsing on topic {message.topic}: [{result.value}]",
-                                            Details=f"message:\n{message_str}",
-                                            topic=message.topic,
-                                        )
-                                    )
-                                )
+                            handle_message(message, queue, decoder)
+
             except aiomqtt.MqttError as mqtt_error:
                 queue.put_nowait(
                     GWDEvent(
@@ -75,3 +78,85 @@ async def run_mqtt_client(
                 )
             )
         )
+
+
+GWDMessageDecoder = create_message_payload_discriminator(
+    model_name="GWDMessageDecoder",
+    module_names=["gwproto.messages"],
+)
+
+
+class GwdMQTTCodec(MQTTCodec):
+    def __init__(self):
+        super().__init__(
+            Decoders.from_objects(
+                [
+                    GtShStatus_Maker,
+                    SnapshotSpaceheat_Maker,
+                ],
+                message_payload_discriminator=GWDMessageDecoder,
+            ).add_decoder(
+                "p", CallableDecoder(lambda decoded: GsPwr_Maker(decoded[0]).tuple)
+            )
+        )
+
+    def validate_source_alias(self, source_alias: str):
+        ...
+
+    def decode_mqtt_message(
+        self, topic: str, payload: bytes
+    ) -> Result[Message[Any], BaseException]:
+        result: Result[Message[Any], BaseException]
+        try:
+            result = Ok(self.decode(topic, payload))
+        except Exception as e:
+            result = Err(e)
+        return result
+
+
+def handle_message(
+    message: aiomqtt.Message, queue: asyncio.Queue, decoder: GwdMQTTCodec
+) -> None:
+    logger.debug("++mqtt message")
+    path_dbg = 0
+    try:
+        pass_on_message = None
+        pass_on_error_event = None
+        message_str = message.payload.decode("utf-8")
+        result = AnyEvent.from_str(message_str)
+        if result.is_ok():
+            path_dbg |= 0x00000001
+            if result.value is not None:
+                path_dbg |= 0x00000002
+                pass_on_message = result.value
+            else:
+                path_dbg |= 0x00000004
+                try:
+                    pass_on_message = decoder.decode(
+                        str(message.topic), message.payload
+                    )
+                except Exception as e:
+                    path_dbg |= 0x00000008
+                    pass_on_error_event = e
+        else:
+            path_dbg |= 0x00000010
+            pass_on_error_event = result.value
+        if pass_on_message is not None:
+            path_dbg |= 0x00000020
+            queue.put_nowait(pass_on_message)
+        else:
+            path_dbg |= 0x00000040
+            queue.put_nowait(
+                GWDEvent(
+                    event=MQTTParseException(
+                        ProblemType=Problems.warning,
+                        Summary=f"ERROR parsing on topic {message.topic}: [{pass_on_error_event}]",
+                        Details=f"message:\n{message_str}",
+                        topic=message.topic,
+                    )
+                )
+            )
+    except Exception as e:
+        logger.exception(e)
+        raise e
+    logger.debug(f"--mqtt message: 0x{path_dbg:08X}")

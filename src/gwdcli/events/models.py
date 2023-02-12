@@ -25,22 +25,44 @@ class AnyEvent(EventBase, extra=Extra.allow):
 
     def as_pandas_record(
         self,
-        collapse_other_fields=True,
-        other_field_name="other_fields",
+        collapse_other_fields: bool = True,
+        other_field_name: str = "other_fields",
+        explicit_summary: str = "",
+        interpolate_summary: bool = False,
     ) -> dict:
         d = self.dict(include=EventBase.__fields__.keys())
         d["TimeNS"] = pd.Timestamp(self.TimeNS, unit="ns", tz="UTC")
-        other_fields = self.other_fields()
-        if collapse_other_fields:
-            d[other_field_name] = json.dumps(other_fields)
+        if explicit_summary:
+            d[other_field_name] = explicit_summary
         else:
-            d.update(other_fields)
+            if interpolate_summary and self.TypeName == "gridworks.event.shutdown":
+                reason = getattr(self, "Reason")
+                newline_idx = reason.find("\n")
+                if newline_idx >= 0:
+                    reason = reason[:newline_idx].rstrip(":")
+                d[other_field_name] = reason
+            elif interpolate_summary and self.TypeName == "gridworks.event.problem":
+                d[other_field_name] = getattr(self, "Summary").replace("\n", "\\n")
+            else:
+                other_fields = self.other_fields()
+                if collapse_other_fields:
+                    d[other_field_name] = json.dumps(other_fields)
+                else:
+                    d.update(other_fields)
         return d
 
-    def as_dataframe(self, columns: Optional[list[str]]) -> pd.DataFrame:
+    def as_dataframe(
+        self,
+        columns: Optional[list[str]],
+        explicit_summary: str = "",
+        interpolate_summary: bool = False,
+    ) -> pd.DataFrame:
         if columns is None:
             columns = ["TimeNS", "TypeName", "Src", "other_fields"]
-        row_dict = self.as_pandas_record()
+        row_dict = self.as_pandas_record(
+            explicit_summary=explicit_summary,
+            interpolate_summary=interpolate_summary,
+        )
         time_ns = row_dict.pop("TimeNS")
         return pd.DataFrame(
             {col: [val] for col, val in row_dict.items()},
@@ -93,8 +115,10 @@ class AnyEvent(EventBase, extra=Extra.allow):
         return cls.from_event_dict(d)
 
     @classmethod
-    def from_str(cls, s: str) -> Result[Optional["AnyEvent"], BaseException]:
+    def from_str(cls, s: str | bytes) -> Result[Optional["AnyEvent"], BaseException]:
         try:
+            if not isinstance(s, str):
+                s = s.decode("utf-8")
             d = json.loads(s)
         except Exception as e:
             return Err(e)
@@ -140,10 +164,19 @@ class AnyEvent(EventBase, extra=Extra.allow):
 
     @classmethod
     def to_dataframe(
-        cls, events: Sequence["AnyEvent"], sort_index: bool = True, **kwargs
+        cls,
+        events: Sequence["AnyEvent"],
+        sort_index: bool = True,
+        interpolate_summary: bool = False,
+        **kwargs
     ) -> pd.DataFrame:
         df = pd.DataFrame.from_records(
-            [e.as_pandas_record() for e in events], index="TimeNS", **kwargs
+            [
+                e.as_pandas_record(interpolate_summary=interpolate_summary)
+                for e in events
+            ],
+            index="TimeNS",
+            **kwargs
         )
         if sort_index:
             df.sort_index(inplace=True)
