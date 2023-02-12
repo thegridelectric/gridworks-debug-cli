@@ -1,5 +1,9 @@
 import asyncio
+import atexit
+import logging
 from pathlib import Path
+from typing import List
+from typing import Optional
 
 import rich
 import typer
@@ -23,8 +27,14 @@ typer_click_object = typer.main.get_command(app)
 
 
 @app.command()
-def show(config_path: Path = Paths().config_path):  # noqa: B008
+def show(
+    config_path: Path = Paths().config_path,
+    verbose: int = typer.Option(0, "--verbose", "-v", count=True),
+    snap: Optional[List[str]] = typer.Option(None, "--snap"),
+):
     settings = EventsSettings.load(config_path)
+    settings.verbosity += verbose
+    settings.snaps += snap
     run(show_main, settings, Console())
 
 
@@ -69,6 +79,18 @@ def mkconfig(
 # noinspection PyUnusedLocal
 async def show_main(settings: EventsSettings, console: Console):
     settings.paths.mkdirs()
+    logger = logging.getLogger("gwd.events")
+    if settings.paths.log_path.exists():
+        settings.paths.log_path.unlink()
+    file_handler = logging.FileHandler(settings.paths.log_path)
+    file_handler.setFormatter(logging.Formatter("%(asctime)s  %(message)s"))
+    logger.addHandler(file_handler)
+    if settings.verbosity == 1:
+        logger.setLevel(logging.INFO)
+    elif settings.verbosity > 1:
+        logger.setLevel(logging.DEBUG)
+    logger.info("Starting gwd events show")
+    logger.info(settings.json(sort_keys=True, indent=2))
     async_queue = asyncio.Queue()
     async with create_task_group() as tg:
         tui = TUI(settings)
@@ -79,4 +101,5 @@ async def show_main(settings: EventsSettings, console: Console):
 
 
 if __name__ == "__main__":
+    atexit.register(lambda: print("\x1b[?25h"))
     app()

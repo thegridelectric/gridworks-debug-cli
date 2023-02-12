@@ -1,3 +1,6 @@
+"""Generic message processor inside asyncio event loop. Probably unnecessary. Should probably be removed and messages
+should instead be directly fed to TUI's sync queue. """
+
 import asyncio
 import queue
 from typing import Any

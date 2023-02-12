@@ -11,6 +11,7 @@ from pydantic import validator
 RELATIVE_APP_PATH = Path("gridworks/debug-cli/events")
 CONFIG_FILE = "gwd.events.config.json"
 CSV_FILE = "events.csv"
+LOG_FILE = "events.log"
 
 
 class Paths(BaseModel):
@@ -33,6 +34,24 @@ class Paths(BaseModel):
     def data_dir(self) -> Path:
         return self.csv_path.parent
 
+    @property
+    def status_dir(self) -> Path:
+        return self.data_dir / "status"
+
+    @property
+    def snap_dir(self) -> Path:
+        return self.data_dir / "snap"
+
+    @property
+    def log_path(self) -> Path:
+        return self.data_dir / LOG_FILE
+
+    def status_path(self, src_name: str) -> Path:
+        return self.status_dir / f"{src_name}.status.json"
+
+    def snap_path(self, src_name: str) -> Path:
+        return self.snap_dir / f"{src_name}.snap.json"
+
     def data_subdir(self, subdir: str) -> Path:
         return self.data_dir / subdir
 
@@ -42,6 +61,8 @@ class Paths(BaseModel):
     def mkdirs(self, mode: int = 0o777, parents: bool = True, exist_ok: bool = True):
         self.config_dir.mkdir(mode=mode, parents=parents, exist_ok=exist_ok)
         self.data_dir.mkdir(mode=mode, parents=parents, exist_ok=exist_ok)
+        self.status_dir.mkdir(mode=mode, parents=parents, exist_ok=exist_ok)
+        self.snap_dir.mkdir(mode=mode, parents=parents, exist_ok=exist_ok)
 
 
 class MQTTClient(BaseModel):
@@ -86,10 +107,12 @@ class SyncSettings(BaseModel):
 
 class TUISettings(BaseModel):
     displayed_events: int = 45
-    max_other_fields_width: int = 150
+    max_other_fields_width: int = 90
 
 
 class EventsSettings(BaseSettings):
+    verbosity: int = 0
+    snaps: list[str] = []
     paths: Paths = Paths()
     sync: SyncSettings = SyncSettings()
     mqtt: MQTTClient = MQTTClient()

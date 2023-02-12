@@ -82,7 +82,7 @@ def generate_directory_csv(
             [src_directory_path], sort=True, ignore_validation_errors=True
         )
         if parsed_events:
-            df = AnyEvent.to_dataframe(parsed_events)
+            df = AnyEvent.to_dataframe(parsed_events, interpolate_summary=True)
             df.to_csv(dst_directory_csv_path)
             if not main_csv_path.exists():
                 df.to_csv(main_csv_path)
@@ -95,8 +95,6 @@ def generate_directory_csv(
                 if not directory_ids.issubset(main_ids):
                     main_df = pd.concat([main_df, df]).sort_index()
                     main_df.drop_duplicates("MessageId", inplace=True)
-                    # with (dst_directory_csv_path.parent /  "log.txt").open("a") as f:
-                    #     f.write(f"{dst_directory_csv_path.name}  dir df: {len(df):4d}  new values:{int(not directory_ids.issubset(main_ids))}  main df: {x:4d} -> {y:4d} -> {z:4d}\n")
                     main_df.to_csv(main_csv_path)
         else:
             df = None
