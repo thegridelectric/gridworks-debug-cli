@@ -52,7 +52,7 @@ async def run_mqtt_client(
                         async for message in messages:
                             handle_message(message, queue, decoder)
 
-            except aiomqtt.MqttError as mqtt_error:
+            except (aiomqtt.MqttError, TimeoutError) as mqtt_error:
                 queue.put_nowait(
                     GWDEvent(
                         event=MQTTException(
@@ -78,6 +78,8 @@ async def run_mqtt_client(
                 )
             )
         )
+        await asyncio.sleep(1)
+        raise e
 
 
 GWDMessageDecoder = create_message_payload_discriminator(
@@ -149,6 +151,7 @@ def handle_message(
             queue.put_nowait(
                 GWDEvent(
                     event=MQTTParseException(
+                        Src=str(message.topic),
                         ProblemType=Problems.warning,
                         Summary=f"ERROR parsing on topic {message.topic}: [{pass_on_error_event}]",
                         Details=f"message:\n{message_str}",
