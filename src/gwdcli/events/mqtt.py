@@ -155,7 +155,7 @@ def handle_message(
                         ProblemType=Problems.warning,
                         Summary=f"ERROR parsing on topic {message.topic}: [{pass_on_error_event}]",
                         Details=f"message:\n{message_str}",
-                        topic=message.topic,
+                        topic=str(message.topic),
                     )
                 )
             )
