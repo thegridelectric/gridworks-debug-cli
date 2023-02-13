@@ -1,14 +1,18 @@
+from datetime import datetime
+from datetime import timedelta
+from datetime import timezone
 from pathlib import Path
 
 from rich.console import Console
 
 from gwdcli.events.models import AnyEvent
+from gwdcli.events.settings import Paths
 
 
 console = Console()
 
 
-def show_dir(directory: str, src: str = "", n: int = 0):
+def show_dir(directory: str = str(Paths().data_dir), src: str = "", n: int = 0):
     path = Path(directory)
     console.print(rf"Searching for event json files in \[{path}\]")
     parsed_events = AnyEvent.from_directories(
@@ -36,10 +40,12 @@ def show_dir(directory: str, src: str = "", n: int = 0):
     if "Src" in df.columns:
         table.columns[2].header_style = "dark_orange"
         table.columns[2].style = "dark_orange"
+
+    local_tz = datetime.now(timezone(timedelta(0))).astimezone().tzinfo
     for time in df.index:
         row = df.loc[time]
         row_vals = [
-            time.isoformat(timespec="milliseconds"),
+            time.tz_convert(local_tz).strftime("%Y-%m-%d %X"),
             row.TypeName.removeprefix("gridworks.event.").removeprefix("comm."),
         ]
         if "Src" in df.columns:

@@ -266,6 +266,8 @@ class TUI:
     def handle_event(self, event: EventBase) -> None:
         logger.debug("++handle_event")
         path_dbg = 0
+        if event.TypeName in ["gridworks.event.problem", "gridworks.event.shutdown"]:
+            logger.info(event.json(sort_keys=True, indent=2))
         row_df = AnyEvent(**event.dict()).as_dataframe(
             columns=self.df.columns.values, interpolate_summary=True
         )
