@@ -156,7 +156,11 @@ class TUI:
         snap_names = list(self.snaps.keys())
         while len(self.scadas_to_snap) < 2:
             if len(snap_names):
-                self.scadas_to_snap.append(snap_names.pop())
+                snap_name = snap_names.pop()
+                if snap_name not in self.scadas_to_snap:
+                    self.scadas_to_snap.append(snap_name)
+                else:
+                    self.scadas_to_snap.append("")
             else:
                 self.scadas_to_snap.append("")
 
@@ -336,6 +340,8 @@ class TUI:
         logger.debug("--handle_snapshot  path:0x{path_dbg:08X}")
 
     def make_snapshot(self, name: str) -> RenderableType:
+        if name not in self.snaps:
+            return Panel("", border_style="blue")
         snap = self.snaps[name]
         report_time = (
             pd.Timestamp(snap.Snapshot.ReportTimeUnixMs, unit="ms", tz="UTC")
@@ -345,7 +351,10 @@ class TUI:
         table = Table(
             Column("Node", header_style="dark_orange", style="dark_orange"),
             Column(
-                "Value", header_style="bold cyan", style="bold cyan", justify="right"
+                "Value",
+                header_style="bold cyan",
+                style="bold cyan",
+                justify="right",
             ),
             Column("Unit", header_style="orchid1", style="orchid1"),
             title=f"\nSnapshot at [green]{report_time}",
