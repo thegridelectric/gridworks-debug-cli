@@ -369,6 +369,12 @@ class TUI:
             ):
                 value_str = f"{snap.Snapshot.ValueList[i]/1000:5.2f}"
                 unit = "C"
+            elif (
+                telemetry_name == TelemetryName.WATER_TEMP_F_TIMES1000
+                or telemetry_name == TelemetryName.WATER_TEMP_F_TIMES1000.value
+            ):
+                value_str = f"{snap.Snapshot.ValueList[i] / 1000:5.2f}"
+                unit = "F"
             else:
                 value_str = f"{snap.Snapshot.ValueList[i]}"
                 unit = snap.Snapshot.TelemetryNameList[i].value
