@@ -8,8 +8,10 @@ from aiobotocore.session import AioSession
 from anyio import create_task_group
 from anyio import run_process
 from anyio import to_process
+from gwproto.messages import GtShStatusEvent
 from gwproto.messages import ProblemEvent
 from gwproto.messages import Problems
+from gwproto.messages import SnapshotSpaceheatEvent
 from pandas import DataFrame
 from result import Err
 from result import Ok
@@ -79,7 +81,13 @@ def generate_directory_csv(
 ) -> Result[Optional[DataFrame], Exception]:
     try:
         parsed_events = AnyEvent.from_directories(
-            [src_directory_path], sort=True, ignore_validation_errors=True
+            [src_directory_path],
+            sort=True,
+            ignore_validation_errors=True,
+            excludes=[
+                GtShStatusEvent.__fields__["TypeName"].default,
+                SnapshotSpaceheatEvent.__fields__["TypeName"].default,
+            ],
         )
         if parsed_events:
             df = AnyEvent.to_dataframe(parsed_events, interpolate_summary=True)

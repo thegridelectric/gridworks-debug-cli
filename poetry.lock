@@ -811,14 +811,14 @@ gitdb = ">=4.0.1,<5"
 
 [[package]]
 name = "gridworks-protocol"
-version = "0.2.3"
+version = "0.2.6"
 description = "Gridworks Protocol"
 category = "main"
 optional = false
 python-versions = ">=3.7,<4.0"
 files = [
-    {file = "gridworks_protocol-0.2.3-py3-none-any.whl", hash = "sha256:da0427bbf0af1d0b97bb6f00981e3f29ddaca07e82a7b3dbd49eb81cda9a286e"},
-    {file = "gridworks_protocol-0.2.3.tar.gz", hash = "sha256:260d726323418de0a0b485895de61a7e107b32f61b532e5c0f3a997bb195af6c"},
+    {file = "gridworks_protocol-0.2.6-py3-none-any.whl", hash = "sha256:feb758272a593289f139793f1f99a62f2e5a204834ab1ea8ee2395c0853634af"},
+    {file = "gridworks_protocol-0.2.6.tar.gz", hash = "sha256:b09dcd90fe9e007132cdb73550d7db2bd0a399d3967e9d393c76ed01a6cb5595"},
 ]
 
 [package.dependencies]
@@ -3007,4 +3007,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "59177178f7da1222534a464ae4a1afb474800d4e11e81fdc2a15aacb9239fe1b"
+content-hash = "2d7c81343a78955a4d74dc4ef9609387bb278bff4b2a5bcbd9b1f130917c61f9"

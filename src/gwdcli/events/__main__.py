@@ -80,8 +80,8 @@ def mkconfig(
 async def show_main(settings: EventsSettings, console: Console):
     settings.paths.mkdirs()
     logger = logging.getLogger("gwd.events")
-    if settings.paths.log_path.exists():
-        settings.paths.log_path.unlink()
+    # if settings.paths.log_path.exists():
+    #     settings.paths.log_path.unlink()
     file_handler = logging.FileHandler(settings.paths.log_path)
     file_handler.setFormatter(logging.Formatter("%(asctime)s  %(message)s"))
     logger.addHandler(file_handler)
@@ -89,6 +89,9 @@ async def show_main(settings: EventsSettings, console: Console):
         logger.setLevel(logging.INFO)
     elif settings.verbosity > 1:
         logger.setLevel(logging.DEBUG)
+    logger.info(
+        "\n\n+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+    )
     logger.info("Starting gwd events show")
     logger.info(settings.json(sort_keys=True, indent=2))
     async_queue = asyncio.Queue()
