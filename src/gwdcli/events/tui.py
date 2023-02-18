@@ -339,7 +339,7 @@ class TUI:
         except Exception as e:
             path_dbg |= 0x00000020
             logger.exception(f"ERROR handling snapshot: {e}")
-        logger.debug("--handle_snapshot  path:0x{path_dbg:08X}")
+        logger.debug(f"--handle_snapshot  path:0x{path_dbg:08X}")
 
     def make_snapshot(self, name: str) -> RenderableType:
         if name not in self.snaps:
@@ -421,13 +421,17 @@ class TUI:
                             == GtShStatusEvent.__fields__["TypeName"].default
                         ):
                             path_dbg |= 0x00000004
-                            self.handle_status(item.status)
+                            self.handle_status(
+                                GtShStatus_Maker.dict_to_tuple(item.status)
+                            )
                         elif (
                             item.TypeName
                             == SnapshotSpaceheatEvent.__fields__["TypeName"].default
                         ):
                             path_dbg |= 0x00000008
-                            self.handle_snapshot(item.snap)
+                            self.handle_snapshot(
+                                SnapshotSpaceheat_Maker.dict_to_tuple(item.snap)
+                            )
                         else:
                             path_dbg |= 0x00000010
                             self.handle_event(item)
