@@ -21,6 +21,8 @@ from gwproto.gt.gt_sh_status import GtShStatus_Maker
 from gwproto.gt.snapshot_spaceheat import SnapshotSpaceheat
 from gwproto.gt.snapshot_spaceheat import SnapshotSpaceheat_Maker
 from gwproto.messages import EventBase
+from gwproto.messages import GtShStatusEvent
+from gwproto.messages import SnapshotSpaceheatEvent
 from rich.console import RenderableType
 from rich.emoji import Emoji
 from rich.layout import Layout
@@ -414,12 +416,26 @@ class TUI:
                         self.handle_gwd_event(item)
                     case EventBase():
                         path_dbg |= 0x00000002
-                        self.handle_event(item)
+                        if (
+                            item.TypeName
+                            == GtShStatusEvent.__fields__["TypeName"].default
+                        ):
+                            path_dbg |= 0x00000004
+                            self.handle_status(item.status)
+                        elif (
+                            item.TypeName
+                            == SnapshotSpaceheatEvent.__fields__["TypeName"].default
+                        ):
+                            path_dbg |= 0x00000008
+                            self.handle_snapshot(item.snap)
+                        else:
+                            path_dbg |= 0x00000010
+                            self.handle_event(item)
                     case Message():
-                        path_dbg |= 0x00000004
+                        path_dbg |= 0x00000010
                         self.handle_message(item)
                     case _:
-                        path_dbg |= 0x00000008
+                        path_dbg |= 0x00000020
                         self.handle_other(item)
                 logger.debug(f"--check_sync_queue: 0x{path_dbg:08X}")
         except queue.Empty:

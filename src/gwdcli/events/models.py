@@ -133,23 +133,33 @@ class AnyEvent(EventBase, extra=Extra.allow):
             return Err(e)
 
     @classmethod
-    def from_directories(
+    def from_directories(  # noqa: C901
         cls,
         directories: Sequence[Path],
         sort: bool = False,
         ignore_validation_errors: bool = False,
         keep_duplicates: bool = False,
+        excludes: Optional[list[str]] = None,
     ) -> Sequence["AnyEvent"]:
         json_paths = []
         for directory in directories:
             json_paths += list(directory.glob("**/*.json"))
         events: list[AnyEvent] = []
         seen = set()
+        if excludes is None:
+            excludes = []
         for path in json_paths:
             result = cls.from_path(path)
             if result.is_ok():
                 if result.value is not None:
-                    if keep_duplicates or result.value.MessageId not in seen:
+                    include = True
+                    for exclude in excludes:
+                        if exclude in result.value.TypeName:
+                            include = False
+                            break
+                    if include and (
+                        keep_duplicates or result.value.MessageId not in seen
+                    ):
                         seen.add(result.value.MessageId)
                         events.append(result.value)
             else:
