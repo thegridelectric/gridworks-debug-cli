@@ -16,7 +16,9 @@ def show_dir(directory: str = str(Paths().data_dir), src: str = "", n: int = 0):
     path = Path(directory)
     console.print(rf"Searching for event json files in \[{path}\]")
     parsed_events = AnyEvent.from_directories(
-        [path], sort=True, ignore_validation_errors=True
+        [path],
+        sort=True,
+        ignore_validation_errors=True,
     )
     console.print(f"Found {len(parsed_events)} files parseable as events.")
     df = AnyEvent.to_dataframe(

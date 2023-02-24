@@ -161,7 +161,10 @@ async def sync_dir_and_generate_csv(
 
 async def sync(settings: EventsSettings, queue: asyncio.Queue) -> None:
     subdirs = await get_eventstore_subdirs(settings.sync.s3)
-    subdirs = subdirs[-settings.sync.num_dirs_to_sync :]
+    if settings.sync.num_dirs_to_sync:
+        subdirs = subdirs[-settings.sync.num_dirs_to_sync :]
+    else:
+        subdirs = []
     if subdirs:
         # allow first sync to run without competition
         await sync_dir_and_generate_csv(settings, subdirs[-1], queue)

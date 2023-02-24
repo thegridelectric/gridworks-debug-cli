@@ -19,6 +19,7 @@ from result import Result
 
 class AnyEvent(EventBase, extra=Extra.allow):
     TypeName: str
+    _message_src: str = ""
 
     def other_fields(self) -> dict:
         return self.dict(exclude=EventBase.__fields__.keys())
@@ -29,8 +30,11 @@ class AnyEvent(EventBase, extra=Extra.allow):
         other_field_name: str = "other_fields",
         explicit_summary: str = "",
         interpolate_summary: bool = False,
+        src_from_message: bool = True,
     ) -> dict:
         d = self.dict(include=EventBase.__fields__.keys())
+        if src_from_message and self._message_src:
+            d["Src"] = self._message_src
         d["TimeNS"] = pd.Timestamp(self.TimeNS, unit="ns", tz="UTC")
         if explicit_summary:
             d[other_field_name] = explicit_summary
@@ -56,12 +60,14 @@ class AnyEvent(EventBase, extra=Extra.allow):
         columns: Optional[list[str]],
         explicit_summary: str = "",
         interpolate_summary: bool = False,
+        src_from_message: bool = True,
     ) -> pd.DataFrame:
         if columns is None:
             columns = ["TimeNS", "TypeName", "Src", "other_fields"]
         row_dict = self.as_pandas_record(
             explicit_summary=explicit_summary,
             interpolate_summary=interpolate_summary,
+            src_from_message=src_from_message,
         )
         time_ns = row_dict.pop("TimeNS")
         return pd.DataFrame(
@@ -87,12 +93,16 @@ class AnyEvent(EventBase, extra=Extra.allow):
             return Err(e)
 
     @classmethod
-    def from_message_dict(cls, d: dict) -> Result[Optional["AnyEvent"], BaseException]:
+    def from_message_dict(
+        cls, d: dict, src_from_message: bool = True
+    ) -> Result[Optional["AnyEvent"], BaseException]:
         """
         Extract AnyEvent from d, assuming d contains information representing a Gridworks Message.
 
         Args:
             d: Dictionary of data (possibly) representing a Gridworks Message with a Gridworks Event.
+            src_from_message: whether to replace "Src" in the event with message.Header.Src, if the dict
+              d represents a message.
 
         Returns:
             - Ok(AnyEvent), if d is parseable as Message[AnyEvent] or
@@ -100,35 +110,48 @@ class AnyEvent(EventBase, extra=Extra.allow):
             - Err(ValidationError), if d is not parseable as a Message.
         """
         try:
+            src = d.get("Header", dict()).get("Src", "")
+            if src:
+                d["Src"] = src
             m = Message.parse_obj(d)
+
             if m.Header.MessageType.startswith("gridworks.event"):
-                return cls.from_event_dict(m.Payload)
+                result = cls.from_event_dict(m.Payload)
+                if result.is_ok() and src_from_message:
+                    result.value._message_src = m.src()
+                return result
             else:
                 return Ok(None)
         except ValidationError as e:
             return Err(e)
 
     @classmethod
-    def from_dict(cls, d: dict) -> Result[Optional["AnyEvent"], ValidationError]:
+    def from_dict(
+        cls, d: dict, src_from_message: bool = True
+    ) -> Result[Optional["AnyEvent"], ValidationError]:
         if d.get("TypeName", "") == Message.type_name():
-            return cls.from_message_dict(d)
+            return cls.from_message_dict(d, src_from_message=src_from_message)
         return cls.from_event_dict(d)
 
     @classmethod
-    def from_str(cls, s: str | bytes) -> Result[Optional["AnyEvent"], BaseException]:
+    def from_str(
+        cls, s: str | bytes, src_from_message: bool = True
+    ) -> Result[Optional["AnyEvent"], BaseException]:
         try:
             if not isinstance(s, str):
                 s = s.decode("utf-8")
             d = json.loads(s)
         except Exception as e:
             return Err(e)
-        return cls.from_dict(d)
+        return cls.from_dict(d, src_from_message=src_from_message)
 
     @classmethod
-    def from_path(cls, path: Path) -> Result[Optional["AnyEvent"], BaseException]:
+    def from_path(
+        cls, path: Path, src_from_message: bool = True
+    ) -> Result[Optional["AnyEvent"], BaseException]:
         try:
             with path.open() as f:
-                return cls.from_str(f.read())
+                return cls.from_str(f.read(), src_from_message=src_from_message)
         except Exception as e:
             return Err(e)
 
@@ -140,6 +163,7 @@ class AnyEvent(EventBase, extra=Extra.allow):
         ignore_validation_errors: bool = False,
         keep_duplicates: bool = False,
         excludes: Optional[list[str]] = None,
+        src_from_message: bool = True,
     ) -> Sequence["AnyEvent"]:
         json_paths = []
         for directory in directories:
@@ -149,7 +173,7 @@ class AnyEvent(EventBase, extra=Extra.allow):
         if excludes is None:
             excludes = []
         for path in json_paths:
-            result = cls.from_path(path)
+            result = cls.from_path(path, src_from_message=src_from_message)
             if result.is_ok():
                 if result.value is not None:
                     include = True
@@ -178,11 +202,15 @@ class AnyEvent(EventBase, extra=Extra.allow):
         events: Sequence["AnyEvent"],
         sort_index: bool = True,
         interpolate_summary: bool = False,
+        src_from_message: bool = True,
         **kwargs
     ) -> pd.DataFrame:
         df = pd.DataFrame.from_records(
             [
-                e.as_pandas_record(interpolate_summary=interpolate_summary)
+                e.as_pandas_record(
+                    interpolate_summary=interpolate_summary,
+                    src_from_message=src_from_message,
+                )
                 for e in events
             ],
             index="TimeNS",
