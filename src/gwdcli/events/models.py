@@ -102,7 +102,7 @@ class AnyEvent(EventBase, extra=Extra.allow):
         Args:
             d: Dictionary of data (possibly) representing a Gridworks Message with a Gridworks Event.
             src_from_message: whether to replace "Src" in the event with message.Header.Src, if the dict
-              d represents a message.
+                              d represents a message.
 
         Returns:
             - Ok(AnyEvent), if d is parseable as Message[AnyEvent] or
