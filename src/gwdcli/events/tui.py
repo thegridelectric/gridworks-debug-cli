@@ -274,7 +274,8 @@ class TUI:
         path_dbg = 0
         if event.TypeName in ["gridworks.event.problem", "gridworks.event.shutdown"]:
             logger.info(event.json(sort_keys=True, indent=2))
-        row_df = AnyEvent(**event.dict()).as_dataframe(
+        any_event = AnyEvent(**event.dict())
+        row_df = any_event.as_dataframe(
             columns=self.df.columns.values, interpolate_summary=True
         )
         display_not_full = len(self.display_df) < self.settings.tui.displayed_events
