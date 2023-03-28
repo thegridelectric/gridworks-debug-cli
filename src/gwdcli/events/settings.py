@@ -7,9 +7,13 @@ from pydantic import BaseSettings
 from pydantic import SecretStr
 from pydantic import validator
 
+from gwdcli.utils.settings import RELATIVE_DEBUG_CLI_PATH
+from gwdcli.utils.settings import S3Settings
+from gwdcli.utils.settings import config_file_name
 
-RELATIVE_APP_PATH = Path("gridworks/debug-cli/events")
-CONFIG_FILE = "gwd.events.config.json"
+
+RELATIVE_APP_PATH = RELATIVE_DEBUG_CLI_PATH / "events"
+CONFIG_FILE = config_file_name("events")
 CSV_FILE = "events.csv"
 LOG_FILE = "events.log"
 
@@ -85,19 +89,6 @@ class MQTTClient(BaseModel):
             ),
             password=self.password.get_secret_value(),
         )
-
-
-class S3Settings(BaseModel):
-    bucket: str = ""
-    prefix: str = ""
-    profile: str = ""
-    region: str = ""
-
-    def subprefix(self, subdir: str) -> str:
-        return f"{self.prefix.rstrip('/')}/{subdir}"
-
-    def synced_key(self, subdir: str) -> str:
-        return f"{self.bucket}/{self.subprefix(subdir)}"
 
 
 class SyncSettings(BaseModel):
