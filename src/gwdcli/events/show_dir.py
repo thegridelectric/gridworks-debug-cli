@@ -12,7 +12,10 @@ from gwdcli.events.settings import Paths
 console = Console()
 
 
-def show_dir(directory: str = str(Paths().data_dir), src: str = "", n: int = 0):
+def show_dir(directory: str = "", src: str = "", n: int = 0):
+    """Display events in a directory."""
+    if not directory:
+        directory = Paths().data_dir
     path = Path(directory)
     console.print(rf"Searching for event json files in \[{path}\]")
     parsed_events = AnyEvent.from_directories(
