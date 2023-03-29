@@ -81,13 +81,13 @@ def egauge_download(  # noqa: C901
 
         Download data until two midnights back (less than 48 hours):
 
-            [green]gwd csv egd -d 2[green]
+            [green]gwd csv egd -d 2[/green]
 
         Download data for last 48 hours from current time:
 
             [green]gwd csv egd -d 2d[/green]
 
-        Or:
+        Or, equivalently:
 
             [green]gwd csv egd -d 2.0[/green]
 

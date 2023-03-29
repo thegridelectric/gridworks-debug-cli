@@ -13,9 +13,18 @@ app = typer.Typer(
     no_args_is_help=True,
     pretty_exceptions_enable=False,
     rich_markup_mode="rich",
-    help="Commands for downloading GridWorks data in csv format.",
+    help="""
+    Commands for downloading GridWorks data in csv format.
+
+    To generate default configuration, run: [green]
+        gwd csv mkconfig
+    [/green]
+    """,
 )
 app.command("egd")(egauge_download)
+
+# For sphinx:
+typer_click_object = typer.main.get_command(app)
 
 
 @app.command()

@@ -20,9 +20,15 @@ from gwdcli.events.sync import sync
 from gwdcli.events.tui import TUI
 
 
-app = typer.Typer(no_args_is_help=True, pretty_exceptions_enable=False)
+app = typer.Typer(
+    no_args_is_help=True,
+    pretty_exceptions_enable=False,
+    rich_markup_mode="rich",
+    help="Commands for monitoring GridWorks communication events.",
+)
 app.command("dir")(show_dir)
 
+# For sphinx:
 typer_click_object = typer.main.get_command(app)
 
 
@@ -32,6 +38,7 @@ def show(
     verbose: int = typer.Option(0, "--verbose", "-v", count=True),
     snap: Optional[List[str]] = typer.Option(None, "--snap"),
 ):
+    """Live display of incoming scada events and status"""
     settings = EventsSettings.load(config_path)
     settings.verbosity += verbose
     settings.snaps += snap
@@ -40,6 +47,8 @@ def show(
 
 @app.command()
 def info(config_path: Path = Paths().config_path):  # noqa: B008
+    """Print current configuration."""
+
     rich.print("")
     rich.print(f"Config path: {config_path}")
     rich.print(f"Config path exists: {config_path.exists()}")
@@ -52,6 +61,7 @@ def info(config_path: Path = Paths().config_path):  # noqa: B008
 def mkconfig(
     config_path: Path = Paths().config_path, force: bool = False  # noqa: B008
 ):
+    """Create default config file for '[bold green]gwd events[/bold green]' command."""
     rich.print()
     if config_path.exists() and not force:
         rich.print(

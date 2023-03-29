@@ -27,6 +27,10 @@ Internal debugging tools for Gridworks systems:
 brew install awscli
 aws configure
 pip install gridworks-debug-cli
+gwd --help
+gwd csv --help
+gwd csv egd --help
+gwd events --help
 gwd events mkconfig
 gwd events show
 ```
@@ -35,7 +39,8 @@ This tool will be maintained only as long as it is internally useful. YMMV.
 
 ## Features
 
-- Event viewing, either from local directory of events or from the cloud.
+- Event viewing, either from local directory of events or from the cloud, via `events` subcommand.
+- Data download, via `csv` subcommand.
 
 ## Requirements
 
@@ -74,7 +79,9 @@ Install gridworks-debug-cli with:
 pip install gridworks-debug-cli
 ```
 
-Configure gridworks-debug-cli with:
+### Vieweing events
+
+Configure _events_ subcommand with:
 
 ```shell
 gwd events mkconfig
@@ -98,6 +105,15 @@ You **must** fill in values for the following keys with information from Gridwor
     }
   }
 }
+```
+
+### Data download
+
+Configure _csv_ subcommand with:
+
+```shell
+gwd csv mkconfig
+open $HOME/.config/gridworks/debug-cli/csv/gwd.csv.config.json
 ```
 
 ## Usage

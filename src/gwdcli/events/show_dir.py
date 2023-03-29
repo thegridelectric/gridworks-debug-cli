@@ -13,6 +13,7 @@ console = Console()
 
 
 def show_dir(directory: str = "", src: str = "", n: int = 0):
+    """Display events in a directory."""
     if not directory:
         directory = Paths().data_dir
     path = Path(directory)
