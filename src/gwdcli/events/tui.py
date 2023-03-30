@@ -426,7 +426,6 @@ class TUI:
                 path_dbg |= 0x00000020
                 self.handle_event(message.Payload)
             case _:
-                logger.debug(f"Received {message.message_type()}")
                 path_dbg |= 0x00000040
         logger.debug(f"--handle_message: 0x{path_dbg:08X}")
 
