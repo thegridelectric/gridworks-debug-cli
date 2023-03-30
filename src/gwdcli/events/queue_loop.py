@@ -46,22 +46,5 @@ class AsyncQueueLooper:
             await self.handle_queue_item(item)
             self.async_queue.task_done()
 
-    # async def handle_gwdevent(self, gwdevent: GWDEvent):
-    #     rich.print(gwdevent)
-    #     match gwdevent.event:
-    #         case SyncStartEvent():
-    #             self.sync_queue.put_nowait(gwdevent.event)
-    #         case SyncCompleteEvent():
-    #             self.sync_queue.put_nowait(gwdevent.event)
-    #         case ProblemEvent():
-    #             pass
-
     async def handle_queue_item(self, item: Any):
         self.sync_queue.put_nowait(item)
-        # match item:
-        #     case GWDEvent():
-        #         await self.handle_gwdevent(item)
-        #     case EventBase():
-        #         rich.print(item)
-        #     case _:
-        #         rich.print(item)

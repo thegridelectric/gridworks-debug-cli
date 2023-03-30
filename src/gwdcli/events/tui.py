@@ -16,13 +16,13 @@ from anyio import to_thread
 from gwproto import Message
 from gwproto.enums import TelemetryName
 from gwproto.gs import GsPwr
-from gwproto.gt.gt_sh_status import GtShStatus
-from gwproto.gt.gt_sh_status import GtShStatus_Maker
-from gwproto.gt.snapshot_spaceheat import SnapshotSpaceheat
-from gwproto.gt.snapshot_spaceheat import SnapshotSpaceheat_Maker
 from gwproto.messages import EventBase
 from gwproto.messages import GtShStatusEvent
 from gwproto.messages import SnapshotSpaceheatEvent
+from gwproto.types import GtShStatus
+from gwproto.types import GtShStatus_Maker
+from gwproto.types import SnapshotSpaceheat
+from gwproto.types import SnapshotSpaceheat_Maker
 from rich.console import RenderableType
 from rich.emoji import Emoji
 from rich.layout import Layout
@@ -263,9 +263,11 @@ class TUI:
             self.event_table.columns[
                 3
             ].max_width = self.settings.tui.max_other_fields_width
+        i = 0
         for _, row in self.display_df.tail(
             self.settings.tui.displayed_events
         ).iterrows():
+            i += 1
             self.add_row(row)
         return self.event_table
 
@@ -283,7 +285,11 @@ class TUI:
             display_not_full or row_df.index[0] >= self.display_df.index[0]
         ):
             path_dbg |= 0x00000001
-            self.display_df = pd.concat([self.display_df, row_df]).sort_index()[1:]
+            self.display_df = (
+                pd.concat([self.display_df, row_df])
+                .sort_index()
+                .tail(self.settings.tui.displayed_events)
+            )
             self.layout["events"].update(self.make_event_table())
         if (
             not (self.live_history_df["MessageId"] == event.MessageId).any()
@@ -323,7 +329,7 @@ class TUI:
                     newer = snap.Snapshot.ReportTimeUnixMs > stored_time
             if newer:
                 path_dbg |= 0x00000004
-                snap_str = json.dumps(snap.asdict(), sort_keys=True, indent=2)
+                snap_str = json.dumps(snap.dict(), sort_keys=True, indent=2)
                 with snapshot_path.open("w") as f:
                     f.write(snap_str)
                 self.snaps[snap.FromGNodeAlias] = snap
@@ -365,8 +371,8 @@ class TUI:
         for i in range(len(snap.Snapshot.AboutNodeAliasList)):
             telemetry_name = snap.Snapshot.TelemetryNameList[i]
             if (
-                telemetry_name == TelemetryName.WATER_TEMP_C_TIMES1000
-                or telemetry_name == TelemetryName.WATER_TEMP_C_TIMES1000.value
+                telemetry_name == TelemetryName.WaterTempCTimes1000
+                or telemetry_name == TelemetryName.WaterTempCTimes1000.value
             ):
                 centigrade = snap.Snapshot.ValueList[i] / 1000
                 if self.settings.tui.c_to_f:
@@ -376,8 +382,8 @@ class TUI:
                     value_str = f"{centigrade:5.2f}"
                     unit = "C"
             elif (
-                telemetry_name == TelemetryName.WATER_TEMP_F_TIMES1000
-                or telemetry_name == TelemetryName.WATER_TEMP_F_TIMES1000.value
+                telemetry_name == TelemetryName.WaterTempFTimes1000
+                or telemetry_name == TelemetryName.WaterTempFTimes1000.value
             ):
                 value_str = f"{snap.Snapshot.ValueList[i] / 1000:5.2f}"
                 unit = "F"
@@ -392,7 +398,7 @@ class TUI:
         try:
             status_path = self.settings.paths.snap_path(status.FromGNodeAlias)
             with status_path.open("w") as f:
-                f.write(json.dumps(status.asdict(), sort_keys=True, indent=2))
+                f.write(json.dumps(status.dict(), sort_keys=True, indent=2))
             self.statuses[status.FromGNodeAlias] = status
         except Exception as e:
             logger.exception(f"ERROR handling status: {e}")
@@ -410,9 +416,18 @@ class TUI:
             case GtShStatus():
                 path_dbg |= 0x00000004
                 self.handle_status(message.Payload)
-            case _:
+            case GtShStatusEvent():
                 path_dbg |= 0x00000008
-                pass
+                self.handle_status(message.Payload.status)
+            case SnapshotSpaceheatEvent():
+                path_dbg |= 0x00000010
+                self.handle_snapshot(message.Payload.snap)
+            case EventBase():
+                path_dbg |= 0x00000020
+                self.handle_event(message.Payload)
+            case _:
+                logger.debug(f"Received {message.message_type()}")
+                path_dbg |= 0x00000040
         logger.debug(f"--handle_message: 0x{path_dbg:08X}")
 
     def handle_other(self, item: Any) -> None:
@@ -426,27 +441,6 @@ class TUI:
                     case GWDEvent():
                         path_dbg |= 0x00000001
                         self.handle_gwd_event(item)
-                    case EventBase():
-                        path_dbg |= 0x00000002
-                        if (
-                            item.TypeName
-                            == GtShStatusEvent.__fields__["TypeName"].default
-                        ):
-                            path_dbg |= 0x00000004
-                            self.handle_status(
-                                GtShStatus_Maker.dict_to_tuple(item.status)
-                            )
-                        elif (
-                            item.TypeName
-                            == SnapshotSpaceheatEvent.__fields__["TypeName"].default
-                        ):
-                            path_dbg |= 0x00000008
-                            self.handle_snapshot(
-                                SnapshotSpaceheat_Maker.dict_to_tuple(item.snap)
-                            )
-                        else:
-                            path_dbg |= 0x00000010
-                            self.handle_event(item)
                     case Message():
                         path_dbg |= 0x00000010
                         self.handle_message(item)
