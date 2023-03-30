@@ -1,6 +1,7 @@
 import asyncio
 import atexit
 import logging
+import shutil
 from pathlib import Path
 from typing import List
 from typing import Optional
@@ -37,12 +38,28 @@ def show(
     config_path: Path = Paths().config_path,
     verbose: int = typer.Option(0, "--verbose", "-v", count=True),
     snap: Optional[List[str]] = typer.Option(None, "--snap"),
+    clean: bool = typer.Option(  # noqa
+        False, "-c", "--clean", help="Delete the entire data directory."
+    ),
+    no_sync: bool = typer.Option(
+        False,
+        "--no-sync",
+        help="Skip downloading data from S3. Only mqtt data will be monitored.",
+    ),
+    no_mqtt: bool = typer.Option(
+        False,
+        "--no-mqtt",
+        help="Download data from S3 but do no live monitoring of mqtt.",
+    ),
 ):
     """Live display of incoming scada events and status"""
     settings = EventsSettings.load(config_path)
     settings.verbosity += verbose
     settings.snaps += snap
-    run(show_main, settings, Console())
+    if clean:
+        rich.print(f"Deleting {settings.paths.data_dir}")
+        shutil.rmtree(settings.paths.data_dir)
+    run(show_main, settings, Console(), not no_sync, not no_mqtt)
 
 
 @app.command()
@@ -86,8 +103,23 @@ def mkconfig(
     rich.print()
 
 
+@app.command()
+def clean(
+    config_path: Path = Paths().config_path,
+):
+    """Delete the _entire_ events data directory"""
+    settings = EventsSettings.load(config_path)
+    rich.print(f"Deleting {settings.paths.data_dir}")
+    shutil.rmtree(settings.paths.data_dir)
+
+
 # noinspection PyUnusedLocal
-async def show_main(settings: EventsSettings, console: Console):
+async def show_main(
+    settings: EventsSettings,
+    console: Console,
+    do_sync: bool = True,
+    do_mqtt: bool = True,
+):
     settings.paths.mkdirs()
     logger = logging.getLogger("gwd.events")
     # if settings.paths.log_path.exists():
@@ -107,8 +139,10 @@ async def show_main(settings: EventsSettings, console: Console):
     async_queue = asyncio.Queue()
     async with create_task_group() as tg:
         tui = TUI(settings)
-        tg.start_soon(run_mqtt_client, settings.mqtt, async_queue)
-        tg.start_soon(sync, settings, async_queue)
+        if do_mqtt:
+            tg.start_soon(run_mqtt_client, settings.mqtt, async_queue)
+        if do_sync:
+            tg.start_soon(sync, settings, async_queue)
         tg.start_soon(AsyncQueueLooper.loop_task, settings, async_queue, tui.queue)
         tg.start_soon(tui.tui_task)
 
