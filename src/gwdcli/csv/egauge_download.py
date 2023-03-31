@@ -25,9 +25,9 @@ from gwdcli.csv.settings import Paths
 def egauge_download(  # noqa: C901
     scada: str = typer.Option(
         "",
-        "-s",
-        "--scada",
-        help="Short name for scada whose eGauge download. Defaults to contents of [orange3]CSVSettings.default_scada",
+        "-g",
+        "--gnode",
+        help="Short name for atn/scada whose eGauge download. Defaults to contents of [orange3]CSVSettings.default_scada",
     ),
     config_path: Path = typer.Option(Paths().config_path),
     start: datetime = typer.Option(
@@ -63,7 +63,7 @@ def egauge_download(  # noqa: C901
     """Download data directly from the eGauge server to a csv file.
 
     Output directory is next to the specified config_path, named for specified scada.
-    By default downloads data from last midnight to now.
+    By default, downloads data from last midnight to now.
 
     Examples:
 
@@ -71,7 +71,7 @@ def egauge_download(  # noqa: C901
 
             [green]gwd csv egd[/green]
 
-        Download yesterdays's data for default scada:
+        Download yesterday's data for default scada:
 
             [green]gwd csv egd -y[/green]
 
