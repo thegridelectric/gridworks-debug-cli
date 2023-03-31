@@ -17,17 +17,18 @@ CONFIG_FILE = "gwd.csv.config.json"
 
 class Paths(BaseModel):
     config_path: str | Path = ""
+    data_dir: str | Path = ""
 
     @validator("config_path", always=True)
     def get_config_path(cls, v: str | Path) -> Path:
         return Path(v if v else xdg.xdg_config_home() / RELATIVE_APP_PATH / CONFIG_FILE)
 
-    @property
-    def config_dir(self) -> Path:
-        return self.config_path.parent
+    @validator("data_dir", always=True)
+    def get_data_dir(cls, v: str | Path) -> Path:
+        return Path(v if v else xdg.xdg_state_home() / RELATIVE_APP_PATH)
 
     @property
-    def data_dir(self) -> Path:
+    def config_dir(self) -> Path:
         return self.config_path.parent
 
     def scada_data_dir(self, scada: str) -> Path:
