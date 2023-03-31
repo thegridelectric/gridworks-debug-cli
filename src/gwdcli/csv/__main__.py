@@ -42,6 +42,9 @@ def info(config_path: Path = Paths().config_path):  # noqa: B008
 @app.command()
 def mkconfig(
     config_path: Path = Paths().config_path,
+    data_dir: Path = typer.Option(
+        Paths().data_dir, "-d", "--data-dir", help="Base output directory."
+    ),
     force: bool = typer.Option(
         False, help="Overwrite existing config file, if it exists."
     ),
@@ -67,13 +70,18 @@ def mkconfig(
         with config_path.open("w") as f:
             f.write(
                 CSVSettings(
+                    paths=Paths(
+                        config_path=config_path,
+                        data_dir=data_dir,
+                    ),
+                    default_scada="apple",
                     scadas=dict(
                         apple=ScadaConfig(
                             atn="hw1.isone.me.freedom.apple",
                             egauge="4922",
                             bytes_per_row=240,
                         )
-                    )
+                    ),
                 ).json(sort_keys=True, indent=2)
                 + "\n"
             )
