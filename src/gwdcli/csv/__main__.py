@@ -72,7 +72,7 @@ def mkconfig(
                 CSVSettings(
                     paths=Paths(
                         config_path=config_path,
-                        data_dir=data_dir,
+                        data_dir=Path(data_dir).absolute(),
                     ),
                     default_scada="apple",
                     scadas=dict(

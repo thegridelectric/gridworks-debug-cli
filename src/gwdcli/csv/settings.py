@@ -78,7 +78,7 @@ class eGaugeSettings(BaseModel):  # noqa: N801
         egauge_id: str,
         seconds_per_row: int | float,
         rows: int,
-        start_utc: int | float,
+        end_utc: int | float,
     ) -> URL:
         raw_query_string = "c&S"
         if self.relative_to_epoch:
@@ -94,7 +94,7 @@ class eGaugeSettings(BaseModel):  # noqa: N801
             .with_query(
                 s=int(seconds_per_row) - 1,
                 n=rows + 1,
-                f=int(start_utc),
+                f=int(end_utc),
             )
             .raw_query_string
         )

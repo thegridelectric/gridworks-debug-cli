@@ -1,14 +1,7 @@
 """Test cases for the __main__ module."""
-import pytest
 from typer.testing import CliRunner
 
 from gwdcli import __main__
-
-
-@pytest.fixture
-def runner() -> CliRunner:
-    """Fixture for invoking command-line interfaces."""
-    return CliRunner()
 
 
 def test_gwd_succeeds(runner: CliRunner) -> None:

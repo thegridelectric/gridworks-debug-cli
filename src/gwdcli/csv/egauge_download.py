@@ -1,14 +1,19 @@
+import io
+import typing
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
 from pathlib import Path
+from types import NoneType
 from typing import Tuple
 
 import aiohttp
 import anyio
+import pandas as pd
 import pendulum
 import pytimeparse2
 import typer
+from pandas._typing import ReadCsvBuffer  # noqa
 from rich import print
 from rich.progress import BarColumn
 from rich.progress import FileSizeColumn
@@ -17,12 +22,153 @@ from rich.progress import TaskProgressColumn
 from rich.progress import TextColumn
 from rich.progress import TimeElapsedColumn
 from rich.progress import TotalFileSizeColumn
+from yarl import URL
 
 from gwdcli.csv.settings import CSVSettings
 from gwdcli.csv.settings import Paths
+from gwdcli.csv.settings import ScadaConfig
 
 
-def egauge_download(  # noqa: C901
+class EGDArgInfo:
+    scada_name: str
+    scada_config: ScadaConfig
+    specified_duration_seconds: int
+    actual_duration_seconds: int
+    start: pendulum.DateTime
+    end: pendulum.DateTime
+    end_utc: pendulum.DateTime
+    period_seconds: int
+    rows: int
+    url: URL
+    egauge_csv_path: Path
+
+    def __init__(  # noqa: C901
+        self,
+        settings: CSVSettings,
+        scada_name: str,
+        start: datetime | NoneType,
+        duration: str,
+        yesterday: bool,
+        period_seconds: int,
+    ):
+        if not scada_name:
+            scada_name = settings.default_scada
+        if not scada_name:
+            raise typer.BadParameter(
+                "--egauge or --scada must be specified. Scada may be specified "
+                "directly or by 'default_settings' in settings"
+            )
+        if scada_name not in settings.scadas:
+            raise typer.BadParameter(
+                f"Specified scada ({scada_name}) not founds in settings.scadas, which contains: "
+                f"{str(list(settings.scadas.keys()))}"
+            )
+        self.scada_name = scada_name
+        self.scada_config = settings.scadas[self.scada_name]
+        duration_is_int_days = False
+        if yesterday:
+            if start is not None or duration != "1":
+                raise typer.BadParameter(
+                    "If --yesterday is specified, --start and --duration must not be specified"
+                )
+            self.specified_duration_seconds = int(timedelta(days=1).total_seconds())
+            self.start = pendulum.today().subtract(
+                seconds=self.specified_duration_seconds
+            )
+        else:
+            try:
+                try:
+                    # First try to parse duration as an int, indicating days.
+                    duration_days_float = float(int(duration))
+                    duration_is_int_days = True
+                except ValueError:
+                    # Next try to parse duration as a float, also indicating days
+                    duration_days_float = float(duration)
+                self.specified_duration_seconds = int(
+                    duration_days_float * timedelta(days=1).total_seconds()
+                )
+            except ValueError:
+                try:
+                    # Finally try to parse duration using pytimeparse2
+                    self.specified_duration_seconds = int(
+                        pytimeparse2.parse(duration, raise_exception=True)
+                    )
+                except Exception as e:
+                    raise typer.BadParameter(
+                        f"Could not parse duration ({duration}) as a duration"
+                    ) from e
+            if start is None:
+                if duration_is_int_days:
+                    self.start = pendulum.tomorrow().subtract(
+                        seconds=self.specified_duration_seconds
+                    )
+                else:
+                    self.start = pendulum.now().subtract(
+                        seconds=self.specified_duration_seconds
+                    )
+            else:
+                self.start = pendulum.instance(start, tz="local")
+        now = pendulum.now()
+        if self.start.add(seconds=self.specified_duration_seconds) > now:
+            self.actual_duration_seconds = int(now.diff(self.start).total_seconds())
+        else:
+            self.actual_duration_seconds = self.specified_duration_seconds
+        self.end = self.start.add(seconds=self.actual_duration_seconds)
+        self.end_utc = self.end.astimezone(tz=timezone.utc)
+        self.period_seconds = period_seconds
+        self.rows = int(self.actual_duration_seconds / self.period_seconds)
+        self.url = settings.egauge.url(
+            egauge_id=self.scada_config.egauge,
+            end_utc=self.end_utc.timestamp(),
+            seconds_per_row=period_seconds,
+            rows=self.rows,
+        )
+        self.egauge_csv_path = settings.paths.scada_csv_path(
+            self.scada_name, self.start, self.end, "egauge"
+        )
+
+    def __str__(self) -> str:
+        return (
+            "[bold deep_sky_blue1]eGauge Download[/bold deep_sky_blue1]\n"
+            f"  [green]Specified duration[/green]: {timedelta(seconds=self.specified_duration_seconds)}\n"
+            f"  [green]Actual duration[/green]:    {timedelta(seconds=self.actual_duration_seconds)}\n"
+            f"  [green]Start[/green]:              {self.start.to_datetime_string()}\n"
+            f"  [green]End[/green]:                {self.end.to_datetime_string()}\n"
+            f"  [green]End utc[/green]:            {self.end_utc.to_datetime_string()}\n"
+            f"  [green]Seconds per row[/green]:    {self.period_seconds}\n"
+            f"  [green]Rows[/green]:               {self.rows}\n"
+            f"  [green]URL[/green]:                {self.url}\n"
+            f"  [green]CSV path[/green]:           {self.egauge_csv_path}\n"
+        )
+
+    async def download(self) -> Tuple[int, str]:
+        print(
+            "[green]Downloading csv from eGauge. [yellow][bold](Delays are from the eGauge server)[/bold][green] ..."
+        )
+        with Progress(
+            BarColumn(complete_style="deep_sky_blue1"),
+            FileSizeColumn(),
+            TextColumn("/"),
+            TotalFileSizeColumn(),
+            TaskProgressColumn(),
+            TimeElapsedColumn(),
+        ) as progress:
+            task = progress.add_task(
+                "",
+                total=self.rows * self.scada_config.bytes_per_row,
+            )
+            async with aiohttp.ClientSession() as session:
+                progress.update(task, completed=0)
+                async with session.get(self.url) as response:
+                    chunks = b""
+                    async for chunk, _ in response.content.iter_chunks():
+                        chunks += chunk
+                        progress.update(task, completed=len(chunks))
+                text_ = chunks.decode(encoding=response.get_encoding())
+                return response.status, text_
+
+
+def egauge_download(
     scada: str = typer.Option(
         "",
         "-g",
@@ -57,9 +203,23 @@ def egauge_download(  # noqa: C901
         help="Download data for mignight yesterday to midnight today.",
     ),
     period: int = typer.Option(60, "-p", "--period", help="Seconds per row."),
+    local_time: bool = typer.Option(
+        False,
+        "-l",
+        "--local-time",
+        help="Convert downloaded times from UTC to local times before writing CSV",
+    ),
+    no_tz: bool = typer.Option(
+        False, "--no-tz", help="Strip timezone offset from datetimes in CSV"
+    ),
+    raw: bool = typer.Option(
+        False,
+        "--raw",
+        help="In addition usual CSV file, output the raw CSV from eGauge, prior to date sorting timzone application",
+    ),
     dry_run: bool = typer.Option(False, help="Just print information. Do nothing."),
     thirsty_run: bool = typer.Option(False, help="Download data but do not save it."),
-) -> None:
+) -> int:
     """Download data directly from the eGauge server to a csv file.
 
     Output directory is next to the specified config_path, named for specified scada.
@@ -93,117 +253,52 @@ def egauge_download(  # noqa: C901
 
     """
     settings = CSVSettings.load(config_path)
-    if not scada:
-        scada = settings.default_scada
-    if not scada:
-        raise typer.BadParameter(
-            "--egauge or --scada must be specified. Scada may be specified "
-            "directly or by 'default_settings' in settings"
-        )
-    if scada not in settings.scadas:
-        raise typer.BadParameter(
-            f"Specified scada ({scada}) not founds in settings.scadas, which contains: "
-            f"{str(list(settings.scadas.keys()))}"
-        )
-    egauge = settings.scadas[scada].egauge
-    duration_seconds: int | float
-    duration_is_int_days = False
-    if yesterday:
-        if start is not None or duration != "1":
-            raise typer.BadParameter(
-                "If --yesterday is specified, --start and --duration must not be specified"
-            )
-        duration_seconds = timedelta(days=1).total_seconds()
-        start = pendulum.today().subtract(seconds=duration_seconds)
-    else:
-        try:
-            try:
-                duration_float = float(int(duration))
-                duration_is_int_days = True
-            except ValueError:
-                duration_float = float(duration)
-            duration_seconds = duration_float * timedelta(days=1).total_seconds()
-        except ValueError:
-            try:
-                duration_seconds = pytimeparse2.parse(duration, raise_exception=True)
-            except Exception as e:
-                raise typer.BadParameter(
-                    f"Could not parse duration ({duration}) as a duration"
-                ) from e
-        if start is None:
-            if duration_is_int_days:
-                start = pendulum.tomorrow().subtract(seconds=duration_seconds)
-            else:
-                start = pendulum.now().subtract(seconds=duration_seconds)
-        else:
-            start = pendulum.instance(start, tz="local")
-    now = pendulum.now()
-    if start.add(seconds=duration_seconds) > now:
-        actual_duration_seconds = now.diff(start).total_seconds()
-    else:
-        actual_duration_seconds = duration_seconds
-    start_utc = start.astimezone(tz=timezone.utc)
-    rows = int(duration_seconds / period)
-    url = settings.egauge.url(
-        egauge_id=egauge,
-        start_utc=start_utc.timestamp(),
-        seconds_per_row=period,
-        rows=rows,
+    info = EGDArgInfo(
+        settings=settings,
+        scada_name=scada,
+        start=start,
+        duration=duration,
+        yesterday=yesterday,
+        period_seconds=period,
     )
-    egauge_csv_path = settings.paths.scada_csv_path(
-        scada, start, start.add(seconds=actual_duration_seconds), "egauge"
-    )
-    print("\n[bold deep_sky_blue1]eGauge Download[/bold deep_sky_blue1]")
-    print(f"  [green]specified duration[/green]: {timedelta(seconds=duration_seconds)}")
-    print(
-        f"  [green]actual duration[/green]:    {timedelta(seconds=actual_duration_seconds)}"
-    )
-    print(f"  [green]start[/green]:              {start.to_datetime_string()}")
-    print(f"  [green]start utc[/green]:          {start_utc.to_datetime_string()}")
-    print(f"  [green]seconds per row[/green]:    {period}")
-    print(f"  [green]rows[/green]:               {rows}")
-    print(f"  [green]url[/green]:                {url}")
-    print(f"  [green]csv[/green]:                {egauge_csv_path}")
-
-    async def download() -> Tuple[int, str]:
-        print(
-            "[green]Downloading csv from eGauge. [yellow][bold](Delays are from the eGauge server)[/bold][green] ..."
-        )
-        with Progress(
-            BarColumn(complete_style="deep_sky_blue1"),
-            FileSizeColumn(),
-            TextColumn("/"),
-            TotalFileSizeColumn(),
-            TaskProgressColumn(),
-            TimeElapsedColumn(),
-        ) as progress:
-            task = progress.add_task(
-                "",
-                total=rows * settings.scadas[scada].bytes_per_row,
-            )
-            async with aiohttp.ClientSession() as session:
-                progress.update(task, completed=0)
-                async with session.get(url) as response:
-                    chunks = b""
-                    async for chunk, _ in response.content.iter_chunks():
-                        chunks += chunk
-                        progress.update(task, completed=len(chunks))
-                text_ = chunks.decode(encoding=response.get_encoding())
-                return response.status, text_
-
+    print()
+    print(str(info))
+    ret = 0
     if dry_run:
         print("\nDry run. Doing nothing.\n")
     else:
-        code, text = anyio.run(download)
+        code, text = anyio.run(info.download)
+        sio = io.StringIO(text)
+        df = pd.read_csv(
+            typing.cast(ReadCsvBuffer[str], sio),
+            index_col="Date & Time",
+            parse_dates=True,
+        )
+        df.index = df.index.sort_values()
+        df.index = df.index.tz_localize("UTC")
+        if local_time:
+            df.index = df.index.tz_convert(pendulum.now().timezone.name)
+        if no_tz:
+            df.index = df.index.tz_localize(None)
         if code == 200:
-            csv_dir = egauge_csv_path.parent
             if thirsty_run:
                 print("\nThirsty run. Not saving CSV file\n")
             else:
+                csv_dir = info.egauge_csv_path.parent
                 if not csv_dir.exists():
                     csv_dir.mkdir(parents=True)
-                with egauge_csv_path.open("w") as f:
-                    f.write(text)
-                print(f"Wrote {egauge_csv_path}")
+                df.to_csv(info.egauge_csv_path)
+                print(f"Wrote {info.egauge_csv_path}")
+                if raw:
+                    raw_path = info.egauge_csv_path.parent / (
+                        info.egauge_csv_path.name + ".raw.csv"
+                    )
+                    with raw_path.open("w") as f:
+                        f.write(text)
+                    print(f"Wrote {raw_path}")
+                print("\nOpen with command:\n")
+                print(f"open  {info.egauge_csv_path} &\n")
         else:
             print(f"Download returned error {code}:\n{text}")
+            ret = -code
+    return ret
