@@ -1,3 +1,5 @@
+import io
+import typing
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
@@ -7,9 +9,11 @@ from typing import Tuple
 
 import aiohttp
 import anyio
+import pandas as pd
 import pendulum
 import pytimeparse2
 import typer
+from pandas._typing import ReadCsvBuffer  # noqa
 from rich import print
 from rich.progress import BarColumn
 from rich.progress import FileSizeColumn
@@ -199,6 +203,20 @@ def egauge_download(
         help="Download data for mignight yesterday to midnight today.",
     ),
     period: int = typer.Option(60, "-p", "--period", help="Seconds per row."),
+    local_time: bool = typer.Option(
+        False,
+        "-l",
+        "--local-time",
+        help="Convert downloaded times from UTC to local times before writing CSV",
+    ),
+    no_tz: bool = typer.Option(
+        False, "--no-tz", help="Strip timezone offset from datetimes in CSV"
+    ),
+    raw: bool = typer.Option(
+        False,
+        "--raw",
+        help="In addition usual CSV file, output the raw CSV from eGauge, prior to date sorting timzone application",
+    ),
     dry_run: bool = typer.Option(False, help="Just print information. Do nothing."),
     thirsty_run: bool = typer.Option(False, help="Download data but do not save it."),
 ) -> int:
@@ -245,12 +263,23 @@ def egauge_download(
     )
     print()
     print(str(info))
-
     ret = 0
     if dry_run:
         print("\nDry run. Doing nothing.\n")
     else:
         code, text = anyio.run(info.download)
+        sio = io.StringIO(text)
+        df = pd.read_csv(
+            typing.cast(ReadCsvBuffer[str], sio),
+            index_col="Date & Time",
+            parse_dates=True,
+        )
+        df.index = df.index.sort_values()
+        df.index = df.index.tz_localize("UTC")
+        if local_time:
+            df.index = df.index.tz_convert(pendulum.now().timezone.name)
+        if no_tz:
+            df.index = df.index.tz_localize(None)
         if code == 200:
             if thirsty_run:
                 print("\nThirsty run. Not saving CSV file\n")
@@ -258,9 +287,17 @@ def egauge_download(
                 csv_dir = info.egauge_csv_path.parent
                 if not csv_dir.exists():
                     csv_dir.mkdir(parents=True)
-                with info.egauge_csv_path.open("w") as f:
-                    f.write(text)
+                df.to_csv(info.egauge_csv_path)
                 print(f"Wrote {info.egauge_csv_path}")
+                if raw:
+                    raw_path = info.egauge_csv_path.parent / (
+                        info.egauge_csv_path.name + ".raw.csv"
+                    )
+                    with raw_path.open("w") as f:
+                        f.write(text)
+                    print(f"Wrote {raw_path}")
+                print("\nOpen with command:\n")
+                print(f"open  {info.egauge_csv_path} &\n")
         else:
             print(f"Download returned error {code}:\n{text}")
             ret = -code
