@@ -209,8 +209,8 @@ def egauge_download(
         "--local-time",
         help="Convert downloaded times from UTC to local times before writing CSV",
     ),
-    no_tz: bool = typer.Option(
-        False, "--no-tz", help="Strip timezone offset from datetimes in CSV"
+    write_tz: bool = typer.Option(
+        False, "-z", "--write-tz", help="Write timezone offset from UTC in the CSV"
     ),
     raw: bool = typer.Option(
         False,
@@ -278,7 +278,7 @@ def egauge_download(
         df.index = df.index.tz_localize("UTC")
         if local_time:
             df.index = df.index.tz_convert(pendulum.now().timezone.name)
-        if no_tz:
+        if not write_tz:
             df.index = df.index.tz_localize(None)
         if code == 200:
             if thirsty_run:
