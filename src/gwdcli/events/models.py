@@ -22,7 +22,9 @@ class AnyEvent(EventBase, extra=Extra.allow):
     _message_src: str = ""
 
     def other_fields(self) -> dict:
-        return self.dict(exclude=EventBase.__fields__.keys())
+        exclude = set(EventBase.__fields__.keys())
+        exclude.add("_message_src")
+        return self.dict(exclude=exclude)
 
     def as_pandas_record(
         self,

@@ -37,7 +37,22 @@ typer_click_object = typer.main.get_command(app)
 def show(
     config_path: Path = Paths().config_path,
     verbose: int = typer.Option(0, "--verbose", "-v", count=True),
-    snap: Optional[List[str]] = typer.Option(None, "--snap"),
+    snap: Optional[List[str]] = typer.Option(
+        None,
+        "--snap",
+        help=(
+            "Scadas whose [bold]snapshots[/bold] to show. May be specified multiple times. If present, "
+            "a snapshot message Src must contain one of these values to be displayed."
+        ),
+    ),
+    scada: Optional[List[str]] = typer.Option(
+        None,
+        "--scada",
+        help=(
+            "Scadas whose [bold]events[/bold] to show. May be specified multiple times. If present, "
+            "an event message Src must contain one of these values to be displayed."
+        ),
+    ),
     clean: bool = typer.Option(  # noqa
         False, "-c", "--clean", help="Delete the entire data directory."
     ),
@@ -55,7 +70,10 @@ def show(
     """Live display of incoming scada events and status"""
     settings = EventsSettings.load(config_path)
     settings.verbosity += verbose
+    settings.scadas += scada
     settings.snaps += snap
+    if not settings.snaps:
+        settings.snaps = settings.scadas[:]
     if clean:
         rich.print(f"Deleting {settings.paths.data_dir}")
         shutil.rmtree(settings.paths.data_dir)

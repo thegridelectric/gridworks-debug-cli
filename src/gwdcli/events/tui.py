@@ -10,6 +10,8 @@ from datetime import timedelta
 from datetime import timezone
 from pathlib import Path
 from typing import Any
+from typing import Optional
+from typing import Sequence
 
 import pandas as pd
 from anyio import to_thread
@@ -127,7 +129,7 @@ class TUI:
             )
         self.df.drop_duplicates("MessageId", inplace=True)
         self.live_history_df = self.df.head(0)
-        self.display_df = self.df.tail(self.settings.tui.displayed_events)
+        self.display_df = self.extract_display_df()
         self.queue = queue.Queue()
         self.gwd_text = Text()
         self.sync_spinners = SyncSpinners()
@@ -172,6 +174,18 @@ class TUI:
     def load_snaps(self):
         self._load_latest("snap", "snaps", SnapshotSpaceheat_Maker)
 
+    def extract_display_df(self) -> pd.DataFrame:
+        if self.settings.scadas:
+            srcs_used = [
+                src
+                for src in self.df["Src"].unique()
+                if any(scada in src for scada in self.settings.scadas)
+            ]
+            filtered_df = self.df[self.df["Src"].isin(srcs_used)]
+        else:
+            filtered_df = self.df
+        return filtered_df.tail(self.settings.tui.displayed_events)
+
     def reload_dfs(self):
         self.df = pd.read_csv(
             self.settings.paths.csv_path,
@@ -181,7 +195,7 @@ class TUI:
         )
         self.df = pd.concat([self.df, self.live_history_df]).sort_index()
         self.df.drop_duplicates("MessageId", inplace=True)
-        self.display_df = self.df.tail(self.settings.tui.displayed_events)
+        self.display_df = self.extract_display_df()
 
     def make_layout(self):
         self.layout = Layout(name="root")
@@ -202,7 +216,7 @@ class TUI:
             Layout(name="GWDEvents", minimum_size=100, ratio=2),
             Layout(name="sync"),
         )
-        self.layout["header"].update(Header())
+        self.layout["header"].update(Header(self.settings.scadas))
         self.layout["events"].update(self.event_table)
         self.layout["GWDEvents"].update(
             Panel(self.gwd_text, title="[b]GWDEvents", border_style="green")
@@ -461,15 +475,30 @@ class TUI:
 
 
 class Header:
+    scadas: Sequence[str]
+
     """Display header with clock."""
+
+    def __init__(self, scadas: Optional[Sequence[str]] = None):
+        if scadas:
+            self.scadas = scadas[:]
+        else:
+            self.scadas = []
 
     # noinspection PyMethodMayBeStatic
     def __rich__(self) -> Panel:
         grid = Table.grid(expand=True)
         grid.add_column(justify="center", ratio=1)
         grid.add_column(justify="right")
+        title = "[b]Gridworks Events"
+        if self.scadas:
+            title += " from Scadas: "
+            for i, scada in enumerate(self.scadas):
+                title += scada
+                if i < len(self.scadas) - 1:
+                    title += ", "
         grid.add_row(
-            "[b]Gridworks Events",
+            title,
             datetime.now().ctime().replace(":", "[blink]:[/]"),
         )
         return Panel(grid, style="white on blue")
