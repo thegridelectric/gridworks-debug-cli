@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "gridworks-debug-cli"
-version = "0.2.5"
+version = "0.2.6"
 description = "Gridworks Debug Cli"
 authors = ["Andrew Schweitzer <schweitz72@gmail.com>"]
 license = "MIT"

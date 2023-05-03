@@ -105,6 +105,7 @@ class TUISettings(BaseModel):
 class EventsSettings(BaseSettings):
     verbosity: int = 0
     snaps: list[str] = []
+    scadas: list[str] = []
     paths: Paths = Paths()
     sync: SyncSettings = SyncSettings()
     mqtt: MQTTClient = MQTTClient()
