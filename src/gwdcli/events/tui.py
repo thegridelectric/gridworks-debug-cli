@@ -285,7 +285,7 @@ class TUI:
             self.add_row(row)
         return self.event_table
 
-    def handle_event(self, event: EventBase) -> None:
+    def handle_event(self, message_src: str, event: EventBase) -> None:
         logger.debug("++handle_event")
         path_dbg = 0
         if event.TypeName in ["gridworks.event.problem", "gridworks.event.shutdown"]:
@@ -294,27 +294,36 @@ class TUI:
         row_df = any_event.as_dataframe(
             columns=self.df.columns.values, interpolate_summary=True
         )
-        display_not_full = len(self.display_df) < self.settings.tui.displayed_events
-        if not (self.display_df["MessageId"] == event.MessageId).any() and (
-            display_not_full or row_df.index[0] >= self.display_df.index[0]
+        # Check if message src is accepted
+        if not self.settings.scadas or any(
+            scada in message_src for scada in self.settings.scadas
         ):
             path_dbg |= 0x00000001
-            self.display_df = (
-                pd.concat([self.display_df, row_df])
-                .sort_index()
-                .tail(self.settings.tui.displayed_events)
-            )
-            self.layout["events"].update(self.make_event_table())
+            # Check if time is in the display window
+            if (
+                len(self.display_df) < self.settings.tui.displayed_events
+                or row_df.index[0] >= self.display_df.index[0]
+            ):
+                path_dbg |= 0x00000002
+                # Check if it is already present
+                if not (self.display_df["MessageId"] == event.MessageId).any():
+                    path_dbg |= 0x00000004
+                    self.display_df = (
+                        pd.concat([self.display_df, row_df])
+                        .sort_index()
+                        .tail(self.settings.tui.displayed_events)
+                    )
+                    self.layout["events"].update(self.make_event_table())
         if (
             not (self.live_history_df["MessageId"] == event.MessageId).any()
             and not (self.df["MessageId"] == event.MessageId).any()
         ):
-            path_dbg |= 0x00000002
+            path_dbg |= 0x00000008
             self.live_history_df = pd.concat(
                 [self.live_history_df, row_df]
             ).sort_index()
             if len(self.live_history_df) > 100:
-                path_dbg |= 0x00000004
+                path_dbg |= 0x00000010
                 concatdf = pd.concat([self.df, self.live_history_df]).sort_index()
                 droppeddf = concatdf.drop_duplicates("MessageId")
                 droppeddf.to_csv(self.settings.paths.csv_path)
@@ -438,7 +447,7 @@ class TUI:
                 self.handle_snapshot(message.Payload.snap)
             case EventBase():
                 path_dbg |= 0x00000020
-                self.handle_event(message.Payload)
+                self.handle_event(message.src(), message.Payload)
             case _:
                 path_dbg |= 0x00000040
         logger.debug(f"--handle_message: 0x{path_dbg:08X}")
