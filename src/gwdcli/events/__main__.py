@@ -50,7 +50,8 @@ def show(
         "--scada",
         help=(
             "Scadas whose [bold]events[/bold] to show. May be specified multiple times. If present, "
-            "an event message Src must contain one of these values to be displayed."
+            "an event message Src must contain one of these values to be displayed. "
+            "NOTE: if present, implies --read-only and --no-sync."
         ),
     ),
     clean: bool = typer.Option(  # noqa
@@ -66,18 +67,39 @@ def show(
         "--no-mqtt",
         help="Download data from S3 but do no live monitoring of mqtt.",
     ),
+    read_only: bool = typer.Option(
+        False,
+        "-r",
+        "--read-only",
+        help="Skip downloading data from S3. Monitor data from mqtt, but do not write to disk.",
+    ),
 ):
-    """Live display of incoming scada events and status"""
+    """Live display of incoming scada events and status
+
+    To show events for only one scada, run multiple windows. Run one window to download and save all events, and another
+    window for each scada you wish to show. For example, to display only events from scadas 'almond' and 'orange', each
+    in their own window, run the following commands, each in its own window:
+
+        gwd events show
+        gwd events show --scada almond
+        gwd events show --scada orange
+
+    The unfiltered window is necessary to download previous events from S3 and to save arriving events to disk.
+    """
     settings = EventsSettings.load(config_path)
     settings.verbosity += verbose
     settings.scadas += scada
     settings.snaps += snap
+    if settings.scadas:
+        read_only = True
+    if read_only:
+        no_sync = True
     if not settings.snaps:
         settings.snaps = settings.scadas[:]
     if clean:
         rich.print(f"Deleting {settings.paths.data_dir}")
         shutil.rmtree(settings.paths.data_dir)
-    run(show_main, settings, Console(), not no_sync, not no_mqtt)
+    run(show_main, settings, Console(), not no_sync, not no_mqtt, read_only)
 
 
 @app.command()
@@ -137,6 +159,7 @@ async def show_main(
     console: Console,
     do_sync: bool = True,
     do_mqtt: bool = True,
+    read_only: bool = False,
 ):
     settings.paths.mkdirs()
     logger = logging.getLogger("gwd.events")
@@ -156,7 +179,7 @@ async def show_main(
     logger.info(settings.json(sort_keys=True, indent=2))
     async_queue = asyncio.Queue()
     async with create_task_group() as tg:
-        tui = TUI(settings)
+        tui = TUI(settings, read_only=read_only)
         if do_mqtt:
             tg.start_soon(run_mqtt_client, settings.mqtt, async_queue)
         if do_sync:

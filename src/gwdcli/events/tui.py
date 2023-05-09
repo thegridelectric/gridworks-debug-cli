@@ -99,6 +99,7 @@ class SyncSpinners:
 
 class TUI:
     settings: EventsSettings
+    read_only: bool
     df: pd.DataFrame
     live_history_df: pd.DataFrame
     display_df: pd.DataFrame
@@ -113,8 +114,9 @@ class TUI:
     statuses: dict[str, GtShStatus]
     scadas_to_snap: list[str]
 
-    def __init__(self, settings: EventsSettings):
+    def __init__(self, settings: EventsSettings, read_only: bool):
         self.settings = settings
+        self.read_only = read_only
         if self.settings.paths.csv_path.exists():
             self.df = pd.read_csv(
                 self.settings.paths.csv_path,
@@ -285,15 +287,9 @@ class TUI:
             self.add_row(row)
         return self.event_table
 
-    def handle_event(self, message_src: str, event: EventBase) -> None:
-        logger.debug("++handle_event")
+    def update_display(self, message_src: str, message_id: str, row_df: pd.DataFrame):
+        logger.debug("++update_display")
         path_dbg = 0
-        if event.TypeName in ["gridworks.event.problem", "gridworks.event.shutdown"]:
-            logger.info(event.json(sort_keys=True, indent=2))
-        any_event = AnyEvent(**event.dict())
-        row_df = any_event.as_dataframe(
-            columns=self.df.columns.values, interpolate_summary=True
-        )
         # Check if message src is accepted
         if not self.settings.scadas or any(
             scada in message_src for scada in self.settings.scadas
@@ -306,7 +302,7 @@ class TUI:
             ):
                 path_dbg |= 0x00000002
                 # Check if it is already present
-                if not (self.display_df["MessageId"] == event.MessageId).any():
+                if not (self.display_df["MessageId"] == message_id).any():
                     path_dbg |= 0x00000004
                     self.display_df = (
                         pd.concat([self.display_df, row_df])
@@ -314,22 +310,42 @@ class TUI:
                         .tail(self.settings.tui.displayed_events)
                     )
                     self.layout["events"].update(self.make_event_table())
+        logger.debug(f"--update_display: 0x{path_dbg:08X}")
+
+    def flush_live_history(self):
+        concatdf = pd.concat([self.df, self.live_history_df]).sort_index()
+        droppeddf = concatdf.drop_duplicates("MessageId")
+        droppeddf.to_csv(self.settings.paths.csv_path)
+        self.df = droppeddf
+        self.live_history_df = self.df.head(0)
+
+    def update_live_history(self, message_id: str, row_df: pd.DataFrame):
+        logger.debug("++update_live_history")
+        path_dbg = 0
         if (
-            not (self.live_history_df["MessageId"] == event.MessageId).any()
-            and not (self.df["MessageId"] == event.MessageId).any()
+            not self.read_only
+            and not (self.live_history_df["MessageId"] == message_id).any()
+            and not (self.df["MessageId"] == message_id).any()
         ):
-            path_dbg |= 0x00000008
+            path_dbg |= 0x00000001
             self.live_history_df = pd.concat(
                 [self.live_history_df, row_df]
             ).sort_index()
             if len(self.live_history_df) > 100:
-                path_dbg |= 0x00000010
-                concatdf = pd.concat([self.df, self.live_history_df]).sort_index()
-                droppeddf = concatdf.drop_duplicates("MessageId")
-                droppeddf.to_csv(self.settings.paths.csv_path)
-                self.df = droppeddf
-                self.live_history_df = self.df.head(0)
-        logger.debug(f"--handle_event: 0x{path_dbg:08X}")
+                path_dbg |= 0x00000002
+                self.flush_live_history()
+        logger.debug(f"--update_live_history: 0x{path_dbg:08X}")
+
+    def handle_event(self, message_src: str, event: EventBase) -> None:
+        logger.debug("++handle_event")
+        if event.TypeName in ["gridworks.event.problem", "gridworks.event.shutdown"]:
+            logger.info(event.json(sort_keys=True, indent=2))
+        row_df = AnyEvent(**event.dict()).as_dataframe(
+            columns=self.df.columns.values, interpolate_summary=True
+        )
+        self.update_display(message_src, event.MessageId, row_df)
+        self.update_live_history(event.MessageId, row_df)
+        logger.debug("--handle_event")
 
     def handle_pwr(self, pwr: GsPwr):
         pass
@@ -475,9 +491,15 @@ class TUI:
 
     def loop(self):
         with Live(self.layout, refresh_per_second=10, screen=False):
+            last_flush = time.time()
             while True:
-                time.sleep(0.1)
+                time.sleep(1)
                 self.check_sync_queue()
+                if not self.read_only and len(self.live_history_df) > 0:
+                    now = time.time()
+                    if now > last_flush + self.settings.tui.flush_seconds:
+                        self.flush_live_history()
+                        last_flush = now
 
     async def tui_task(self):
         await to_thread.run_sync(self.loop)
