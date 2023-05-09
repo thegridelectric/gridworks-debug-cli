@@ -100,6 +100,7 @@ class TUISettings(BaseModel):
     displayed_events: int = 45
     max_other_fields_width: int = 90
     c_to_f: bool = True
+    flush_seconds: int = 10
 
 
 class EventsSettings(BaseSettings):

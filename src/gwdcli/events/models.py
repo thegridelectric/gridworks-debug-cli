@@ -21,6 +21,10 @@ class AnyEvent(EventBase, extra=Extra.allow):
     TypeName: str
     _message_src: str = ""
 
+    @property
+    def message_src(self) -> str:
+        return self._message_src
+
     def other_fields(self) -> dict:
         exclude = set(EventBase.__fields__.keys())
         exclude.add("_message_src")
