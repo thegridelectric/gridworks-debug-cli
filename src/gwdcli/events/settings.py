@@ -101,6 +101,7 @@ class TUISettings(BaseModel):
     max_other_fields_width: int = 90
     c_to_f: bool = True
     flush_seconds: int = 10
+    updates_per_second: int = 2
 
 
 class EventsSettings(BaseSettings):

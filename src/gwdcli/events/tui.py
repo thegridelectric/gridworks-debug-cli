@@ -490,7 +490,11 @@ class TUI:
             pass
 
     def loop(self):
-        with Live(self.layout, refresh_per_second=10, screen=False):
+        with Live(
+            self.layout,
+            refresh_per_second=self.settings.tui.updates_per_second,
+            screen=False,
+        ):
             last_flush = time.time()
             while True:
                 time.sleep(1)

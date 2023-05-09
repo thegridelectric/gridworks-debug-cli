@@ -73,6 +73,10 @@ def show(
         "--read-only",
         help="Skip downloading data from S3. Monitor data from mqtt, but do not write to disk.",
     ),
+    updates_per_second: Optional[int] = typer.Option(
+        None,
+        help="Screen updates per second. Higher rates may cause flickering on some terminals.",
+    ),
 ):
     """Live display of incoming scada events and status
 
@@ -99,6 +103,8 @@ def show(
     if clean:
         rich.print(f"Deleting {settings.paths.data_dir}")
         shutil.rmtree(settings.paths.data_dir)
+    if updates_per_second is not None:
+        settings.tui.updates_per_second = updates_per_second
     run(show_main, settings, Console(), not no_sync, not no_mqtt, read_only)
 
 
@@ -160,6 +166,7 @@ async def show_main(
     do_sync: bool = True,
     do_mqtt: bool = True,
     read_only: bool = False,
+    updates_per_second: int = 1,
 ):
     settings.paths.mkdirs()
     logger = logging.getLogger("gwd.events")
