@@ -129,6 +129,7 @@ class TUI:
                 index=pd.DatetimeIndex([], name="TimeNS"),
                 columns=["MessageId", "Src", "TypeName", "other_fields"],
             )
+            self.df.to_csv(self.settings.paths.csv_path)
         self.df.drop_duplicates("MessageId", inplace=True)
         self.live_history_df = self.df.head(0)
         self.display_df = self.extract_display_df()
