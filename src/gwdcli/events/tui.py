@@ -211,10 +211,16 @@ class TUI:
             Layout(name="latest"),
             Layout(name="events", ratio=3),
         )
-        self.layout["latest"].split(
-            Layout(name="snap0"),
-            Layout(name="snap1"),
-        )
+        # EventsSettings
+        if len(self.settings.scadas) == 1:
+            self.layout["latest"].split(
+                Layout(name="snap0"),
+            )
+        else:
+            self.layout["latest"].split(
+                Layout(name="snap0"),
+                Layout(name="snap1"),
+            )
         self.layout["footer"].split_row(
             Layout(name="GWDEvents", minimum_size=100, ratio=2),
             Layout(name="sync"),
@@ -225,7 +231,8 @@ class TUI:
             Panel(self.gwd_text, title="[b]GWDEvents", border_style="green")
         )
         self.layout["snap0"].update(self.make_snapshot(self.scadas_to_snap[0]))
-        self.layout["snap1"].update(self.make_snapshot(self.scadas_to_snap[1]))
+        if len(self.settings.scadas) != 1:
+            self.layout["snap1"].update(self.make_snapshot(self.scadas_to_snap[1]))
         self.layout["sync"].update(self.sync_spinners.panel())
 
     def handle_gwd_event(self, event: GWDEvent) -> None:
@@ -374,7 +381,7 @@ class TUI:
                     f.write(snap_str)
                 self.snaps[snap.FromGNodeAlias] = snap
                 self.select_scadas_for_snaps()
-                for idx in [0, 1]:
+                for idx in range(len(self.layout["latest"].children)):
                     path_dbg |= 0x00000008
                     if snap.FromGNodeAlias == self.scadas_to_snap[idx]:
                         path_dbg |= 0x00000010
@@ -427,6 +434,12 @@ class TUI:
             ):
                 value_str = f"{snap.Snapshot.ValueList[i] / 1000:5.2f}"
                 unit = "F"
+            elif (
+                telemetry_name == TelemetryName.GallonsTimes100
+                or telemetry_name == TelemetryName.GallonsTimes100.value
+            ):
+                value_str = f"{snap.Snapshot.ValueList[i] / 100:5.2f}"
+                unit = "Gallons"
             else:
                 value_str = f"{snap.Snapshot.ValueList[i]}"
                 unit = snap.Snapshot.TelemetryNameList[i].value
