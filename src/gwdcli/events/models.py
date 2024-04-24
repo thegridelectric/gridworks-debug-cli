@@ -236,30 +236,30 @@ class GWDEvent(BaseModel):
 
 class SyncStartEvent(EventBase):
     synced_key: str
-    TypeName: Literal[
+    TypeName: Literal["gridworks.event.debug_cli.sync.start"] = (
         "gridworks.event.debug_cli.sync.start"
-    ] = "gridworks.event.debug_cli.sync.start"
+    )
 
 
 class SyncCompleteEvent(EventBase):
     synced_key: str
     csv_path: Path
-    TypeName: Literal[
+    TypeName: Literal["gridworks.event.debug_cli.sync.complete"] = (
         "gridworks.event.debug_cli.sync.complete"
-    ] = "gridworks.event.debug_cli.sync.complete"
+    )
 
 
 class MQTTParseException(ProblemEvent):
     topic: str
-    TypeName: Literal[
+    TypeName: Literal["gridworks.event.debug_cli.mqtt_parse_exception"] = (
         "gridworks.event.debug_cli.mqtt_parse_exception"
-    ] = "gridworks.event.debug_cli.mqtt_parse_exception"
+    )
 
 
 class MQTTFullySubscribedEvent(CommEvent):
-    TypeName: Literal[
+    TypeName: Literal["gridworks.event.debug_cli.mqtt_fully_subscribed"] = (
         "gridworks.event.debug_cli.mqtt_fully_subscribed"
-    ] = "gridworks.event.debug_cli.mqtt_fully_subscribed"
+    )
 
 
 class MQTTException(CommEvent):
@@ -267,9 +267,9 @@ class MQTTException(CommEvent):
     exception: BaseException
     next_reconnect_delay: float
     will_reconnect: bool
-    TypeName: Literal[
+    TypeName: Literal["gridworks.event.debug_cli.mqtt_exception"] = (
         "gridworks.event.debug_cli.mqtt_exception"
-    ] = "gridworks.event.debug_cli.mqtt_exception"
+    )
 
     class Config:
         arbitrary_types_allowed: bool = True

@@ -1,4 +1,5 @@
 """Sphinx configuration."""
+
 project = "Gridworks Debug Cli"
 author = "Andrew Schweitzer"
 copyright = "2023, Andrew Schweitzer"

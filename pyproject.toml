@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "gridworks-debug-cli"
-version = "0.2.10"
+version = "0.2.11"
 description = "Gridworks Debug Cli"
 authors = ["Andrew Schweitzer <schweitz72@gmail.com>"]
 license = "MIT"
@@ -22,7 +22,7 @@ Changelog = "https://github.com/anschweitzer/gridworks-debug-cli/releases"
 python = "^3.10"
 click = ">=8.0.1"
 typer = "^0.7.0"
-gridworks-protocol = ">=0.3.6"
+gridworks-protocol = ">=0.7.5"
 pydantic = "^1.10.4"
 pandas = "^1.5.3"
 rich = "^13.2.0"
@@ -31,9 +31,9 @@ anyio = "^3.6.2"
 aiobotocore = "^2.4.2"
 types-aiobotocore = {extras = ["essential"], version = "^2.4.2"}
 result = "^0.9.0"
-asyncio-mqtt = "^0.16.1"
 yarl = "^1.8.2"
 pytimeparse2 = "^1.6.0"
+aiomqtt = "^2.0.1"
 
 [tool.poetry.dev-dependencies]
 Pygments = ">=2.10.0"
