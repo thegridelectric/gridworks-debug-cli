@@ -8,6 +8,7 @@ from dataclasses import field
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
+from enum import Enum
 from pathlib import Path
 from typing import Any
 from typing import Optional
@@ -97,6 +98,20 @@ class SyncSpinners:
         return Panel(table, title="[b]Sync", border_style="blue")
 
 
+# NOTE - this is manually copied from scada code;
+#        instead it should be moved to gwproto and
+#        used from there.
+class HoneywellThermostatOperatingState(Enum):
+    idle = 0
+    heating = 1
+    pending_heat = 2
+    # We decided to ignore these
+    # pending_cool = 3
+    # vent_economizer = 4
+    # cooling = 5
+    # fan_only = 6
+
+
 class TUI:
     settings: EventsSettings
     read_only: bool
@@ -152,7 +167,14 @@ class TUI:
         for path in latest_dir.glob(f"**/*{path_suffix}"):
             with path.open() as f:
                 latest_str = f.read()
-            member[path.name[: -len(path_suffix)]] = maker.type_to_tuple(latest_str)
+            try:
+                made = maker.type_to_tuple(latest_str)
+            except Exception as e:
+                logger.exception("ERROR handling %s:\n%s\n", path, latest_str)
+                logger.exception(e)
+                raise e
+            else:
+                member[path.name[: -len(path_suffix)]] = made
 
     def select_scadas_for_snaps(self):
         self.scadas_to_snap = []
@@ -284,9 +306,9 @@ class TUI:
             self.event_table.columns[2].no_wrap = True
             self.event_table.columns[2].max_width = 40
             self.event_table.columns[3].no_wrap = True
-            self.event_table.columns[
-                3
-            ].max_width = self.settings.tui.max_other_fields_width
+            self.event_table.columns[3].max_width = (
+                self.settings.tui.max_other_fields_width
+            )
         i = 0
         for _, row in self.display_df.tail(
             self.settings.tui.displayed_events
@@ -420,6 +442,8 @@ class TUI:
             if (
                 telemetry_name == TelemetryName.WaterTempCTimes1000
                 or telemetry_name == TelemetryName.WaterTempCTimes1000.value
+                or telemetry_name == TelemetryName.AirTempCTimes1000
+                or telemetry_name == TelemetryName.AirTempCTimes1000.value
             ):
                 centigrade = snap.Snapshot.ValueList[i] / 1000
                 if self.settings.tui.c_to_f:
@@ -431,6 +455,8 @@ class TUI:
             elif (
                 telemetry_name == TelemetryName.WaterTempFTimes1000
                 or telemetry_name == TelemetryName.WaterTempFTimes1000.value
+                or telemetry_name == TelemetryName.AirTempFTimes1000
+                or telemetry_name == TelemetryName.AirTempFTimes1000.value
             ):
                 value_str = f"{snap.Snapshot.ValueList[i] / 1000:5.2f}"
                 unit = "F"
@@ -440,6 +466,19 @@ class TUI:
             ):
                 value_str = f"{snap.Snapshot.ValueList[i] / 100:5.2f}"
                 unit = "Gallons"
+            elif (
+                telemetry_name == TelemetryName.ThermostatState
+                or telemetry_name == TelemetryName.ThermostatState.value
+            ):
+                try:
+                    state_enum = HoneywellThermostatOperatingState(
+                        snap.Snapshot.ValueList[i]
+                    )
+                    enum_str = state_enum.name
+                except:  # noqa
+                    enum_str = "UNKNOWN"
+                value_str = f"{enum_str} / {snap.Snapshot.ValueList[i]}"
+                unit = "Heat State"
             else:
                 value_str = f"{snap.Snapshot.ValueList[i]}"
                 unit = snap.Snapshot.TelemetryNameList[i].value

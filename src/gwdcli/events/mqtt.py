@@ -2,7 +2,7 @@ import asyncio
 import logging
 from typing import Any
 
-import asyncio_mqtt as aiomqtt
+import aiomqtt
 from gwproto import CallableDecoder
 from gwproto import Decoders
 from gwproto import Message
@@ -40,17 +40,14 @@ async def run_mqtt_client(
                 async with aiomqtt.Client(**settings.constructor_dict()) as client:
                     connected = True
                     delay = settings.reconnect_min_delay
-                    async with client.messages() as messages:
-                        await client.subscribe("gw/#")
-                        queue.put_nowait(
-                            GWDEvent(
-                                event=MQTTFullySubscribedEvent(
-                                    PeerName=settings.hostname
-                                )
-                            )
+                    await client.subscribe("gw/#")
+                    queue.put_nowait(
+                        GWDEvent(
+                            event=MQTTFullySubscribedEvent(PeerName=settings.hostname)
                         )
-                        async for message in messages:
-                            handle_message(message, queue, decoder)
+                    )
+                    async for message in client.messages:
+                        handle_message(message, queue, decoder)
 
             except (aiomqtt.MqttError, TimeoutError) as mqtt_error:
                 queue.put_nowait(
@@ -104,7 +101,7 @@ class GwdMQTTCodec(MQTTCodec):
         )
 
     def validate_source_alias(self, source_alias: str):
-        ...
+        """No implementation"""
 
     def decode_mqtt_message(
         self, topic: str, payload: bytes
