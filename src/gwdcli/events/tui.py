@@ -105,11 +105,10 @@ class HoneywellThermostatOperatingState(Enum):
     idle = 0
     heating = 1
     pending_heat = 2
-    # We decided to ignore these
-    # pending_cool = 3
-    # vent_economizer = 4
-    # cooling = 5
-    # fan_only = 6
+    pending_cool = 3
+    vent_economizer = 4
+    cooling = 5
+    fan_only = 6
 
 
 class TUI:
