@@ -15,7 +15,12 @@ jobs:
           - { python: "3.11", os: "ubuntu-latest", session: "pre-commit" }
           # - { python: "3.11", os: "ubuntu-latest", session: "mypy" }
           - { python: "3.10", os: "ubuntu-latest", session: "tests" }
-          - { python: "3.11", os: "ubuntu-latest", session: "tests" }
+          - {
+              python: "3.11",
+              os: "ubuntu-latest",
+              session: "tests",
+              coverage: true,
+            }
           # - { python: "3.11", os: "windows-latest", session: "tests" }
           - { python: "3.11", os: "macos-latest", session: "tests" }
           - { python: "3.11", os: "ubuntu-latest", session: "typeguard" }
@@ -97,16 +102,29 @@ jobs:
           restore-keys: |
             ${{ steps.pre-commit-cache.outputs.result }}-
 
-      - name: Run Nox
+      - name: Run Tests with coverage
+        if: matrix.session == 'tests' && matrix.coverage == true
+        run: |
+          nox --python=${{ matrix.python }}
+
+      - name: Run Tests without coverage
+        if: matrix.session == 'tests' && matrix.coverage != true
+        run: |
+          nox --python=${{ matrix.python }} -- --no-coverage
+
+      - name: Run non-test session
+        if: matrix.session != 'tests'
         run: |
           nox --python=${{ matrix.python }}
 
       - name: Upload coverage data
-        if: always() && matrix.session == 'tests'
-        uses: "actions/upload-artifact@v3"
+        if: always() && matrix.session == 'tests' && matrix.coverage == true
+        uses: "actions/upload-artifact@v4.4.0"
         with:
           name: coverage-data
           path: ".coverage.*"
+          if-no-files-found: error
+          include-hidden-files: true
 
       - name: Upload documentation
         if: matrix.session == 'docs-build'
@@ -144,7 +162,7 @@ jobs:
           nox --version
 
       - name: Download coverage data
-        uses: actions/download-artifact@v3
+        uses: "actions/download-artifact@v4.1.8"
         with:
           name: coverage-data
 
@@ -157,4 +175,4 @@ jobs:
           nox --session=coverage -- xml
 
       - name: Upload coverage report
-        uses: codecov/codecov-action@v3.1.0
+        uses: codecov/codecov-action@v4.6.0

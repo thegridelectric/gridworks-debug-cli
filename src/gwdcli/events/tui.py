@@ -171,7 +171,7 @@ class TUI:
             except Exception as e:
                 logger.exception("ERROR handling %s:\n%s\n", path, latest_str)
                 logger.exception(e)
-                raise e
+                # raise e
             else:
                 member[path.name[: -len(path_suffix)]] = made
 
