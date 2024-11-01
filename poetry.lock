@@ -2693,6 +2693,7 @@ files = [
     {file = "SQLAlchemy-1.4.54-cp310-cp310-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:6b24364150738ce488333b3fb48bfa14c189a66de41cd632796fbcacb26b4585"},
     {file = "SQLAlchemy-1.4.54-cp310-cp310-win32.whl", hash = "sha256:a8a72259a1652f192c68377be7011eac3c463e9892ef2948828c7d58e4829988"},
     {file = "SQLAlchemy-1.4.54-cp310-cp310-win_amd64.whl", hash = "sha256:b67589f7955924865344e6eacfdcf70675e64f36800a576aa5e961f0008cde2a"},
+    {file = "SQLAlchemy-1.4.54-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:b05e0626ec1c391432eabb47a8abd3bf199fb74bfde7cc44a26d2b1b352c2c6e"},
     {file = "SQLAlchemy-1.4.54-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:13e91d6892b5fcb94a36ba061fb7a1f03d0185ed9d8a77c84ba389e5bb05e936"},
     {file = "SQLAlchemy-1.4.54-cp311-cp311-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:fb59a11689ff3c58e7652260127f9e34f7f45478a2f3ef831ab6db7bcd72108f"},
     {file = "SQLAlchemy-1.4.54-cp311-cp311-win32.whl", hash = "sha256:1390ca2d301a2708fd4425c6d75528d22f26b8f5cbc9faba1ddca136671432bc"},
@@ -3291,13 +3292,13 @@ typing-extensions = {version = ">=4.1.0", markers = "python_version < \"3.12\""}
 
 [[package]]
 name = "types-aiobotocore-ec2"
-version = "2.15.1"
-description = "Type annotations for aiobotocore.EC2 2.15.1 service generated with mypy-boto3-builder 8.1.2"
+version = "2.15.2"
+description = "Type annotations for aiobotocore.EC2 2.15.2 service generated with mypy-boto3-builder 8.1.2"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "types_aiobotocore_ec2-2.15.1-py3-none-any.whl", hash = "sha256:6c6d5b496dab988fb861a5f83f8c031c9e2826d74edde98275df59d7ddcb7035"},
-    {file = "types_aiobotocore_ec2-2.15.1.tar.gz", hash = "sha256:4333c6422ae5db30399b6caaa978d40bc308b140db3a0d72976e7628953e2297"},
+    {file = "types_aiobotocore_ec2-2.15.2-py3-none-any.whl", hash = "sha256:326a91022af96d494651b783a7db73ef6e785695866d360637040b4261cf0def"},
+    {file = "types_aiobotocore_ec2-2.15.2.tar.gz", hash = "sha256:d773161c79c79f5ec55bc34b7c8c72091c23934f71046e2b2a13a7dbb2050783"},
 ]
 
 [package.dependencies]
