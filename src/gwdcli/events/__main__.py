@@ -102,7 +102,8 @@ def show(
         settings.snaps = settings.scadas[:]
     if clean:
         rich.print(f"Deleting {settings.paths.data_dir}")
-        shutil.rmtree(settings.paths.data_dir)
+        if settings.paths.data_dir.exists():
+            shutil.rmtree(settings.paths.data_dir)
     if updates_per_second is not None:
         settings.tui.updates_per_second = updates_per_second
     run(show_main, settings, Console(), not no_sync, not no_mqtt, read_only)
@@ -156,7 +157,8 @@ def clean(
     """Delete the _entire_ events data directory"""
     settings = EventsSettings.load(config_path)
     rich.print(f"Deleting {settings.paths.data_dir}")
-    shutil.rmtree(settings.paths.data_dir)
+    if settings.paths.data_dir.exists():
+        shutil.rmtree(settings.paths.data_dir)
 
 
 # noinspection PyUnusedLocal
