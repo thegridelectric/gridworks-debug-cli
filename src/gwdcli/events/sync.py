@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from pathlib import Path
 from subprocess import CalledProcessError  # noqa: S404
 from typing import Optional
@@ -8,10 +9,10 @@ from aiobotocore.session import AioSession
 from anyio import create_task_group
 from anyio import run_process
 from anyio import to_process
-from gwproto.messages import GtShStatusEvent
 from gwproto.messages import ProblemEvent
 from gwproto.messages import Problems
-from gwproto.messages import SnapshotSpaceheatEvent
+from gwproto.messages import ReportEvent
+from gwproto.named_types import SnapshotSpaceheat
 from pandas import DataFrame
 from result import Err
 from result import Ok
@@ -68,6 +69,10 @@ def make_sync_command(
         "--quiet",
         "--profile",
         profile,
+        "--exclude",
+        "*",
+        "--include",
+        "*scada-gridworks.event*",
     ]
     if region:
         cmd.extend(["--region", region])
@@ -85,8 +90,9 @@ def generate_directory_csv(
             sort=True,
             ignore_validation_errors=True,
             excludes=[
-                GtShStatusEvent.__fields__["TypeName"].default,
-                SnapshotSpaceheatEvent.__fields__["TypeName"].default,
+                ReportEvent.type_name(),
+                SnapshotSpaceheat.type_name(),
+                "remaining.elec.event",
             ],
         )
         if parsed_events:
@@ -96,7 +102,7 @@ def generate_directory_csv(
                 df.to_csv(main_csv_path)
             else:
                 main_df = pd.read_csv(
-                    main_csv_path, index_col="TimeNS", parse_dates=True
+                    main_csv_path, index_col="TimeCreatedMS", parse_dates=True
                 )
                 main_ids = set(main_df["MessageId"].index)
                 directory_ids = set(df["MessageId"].index)
@@ -123,6 +129,9 @@ async def sync_dir_and_generate_csv(
         profile=s3.profile,
         dest_base_path=settings.paths.data_dir,
         region=s3.region,
+    )
+    logging.getLogger("gwd.events").info(
+        f"Running: aws sync command:\n  {' '.join(sync_cmd)}"
     )
     try:
         await run_process(sync_cmd)

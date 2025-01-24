@@ -185,7 +185,7 @@ async def show_main(
         "\n\n+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
     )
     logger.info("Starting gwd events show")
-    logger.info(settings.json(sort_keys=True, indent=2))
+    logger.info(settings.model_dump_json(indent=2))
     async_queue = asyncio.Queue()
     async with create_task_group() as tg:
         tui = TUI(settings, read_only=read_only)

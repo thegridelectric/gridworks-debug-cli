@@ -13,19 +13,15 @@ from pathlib import Path
 from typing import Any
 from typing import Optional
 from typing import Sequence
+from typing import Type
 
 import pandas as pd
 from anyio import to_thread
 from gwproto import Message
 from gwproto.enums import TelemetryName
-from gwproto.gs import GsPwr
 from gwproto.messages import EventBase
-from gwproto.messages import GtShStatusEvent
-from gwproto.messages import SnapshotSpaceheatEvent
-from gwproto.types import GtShStatus
-from gwproto.types import GtShStatus_Maker
-from gwproto.types import SnapshotSpaceheat
-from gwproto.types import SnapshotSpaceheat_Maker
+from gwproto.named_types import SnapshotSpaceheat
+from pydantic import BaseModel
 from rich.console import RenderableType
 from rich.emoji import Emoji
 from rich.layout import Layout
@@ -125,7 +121,6 @@ class TUI:
     gwd_text: Text
     local_tz: timezone
     snaps: dict[str, SnapshotSpaceheat]
-    statuses: dict[str, GtShStatus]
     scadas_to_snap: list[str]
 
     def __init__(self, settings: EventsSettings, read_only: bool):
@@ -155,10 +150,11 @@ class TUI:
         self.event_table = self.make_event_table()
         self.load_snaps()
         self.select_scadas_for_snaps()
-        self.load_statuses()
         self.make_layout()
 
-    def _load_latest(self, suffix: str, member_name: str, maker: Any) -> None:
+    def _load_latest(
+        self, suffix: str, member_name: str, decoder: Type[BaseModel]
+    ) -> None:
         setattr(self, member_name, dict())
         member = getattr(self, member_name)
         latest_dir = getattr(self.settings.paths, f"{suffix}_dir")
@@ -167,13 +163,13 @@ class TUI:
             with path.open() as f:
                 latest_str = f.read()
             try:
-                made = maker.type_to_tuple(latest_str)
+                decoded = decoder.model_validate_json(latest_str)
             except Exception as e:
                 logger.exception("ERROR handling %s:\n%s\n", path, latest_str)
                 logger.exception(e)
                 # raise e
             else:
-                member[path.name[: -len(path_suffix)]] = made
+                member[path.name[: -len(path_suffix)]] = decoded
 
     def select_scadas_for_snaps(self):
         self.scadas_to_snap = []
@@ -192,11 +188,8 @@ class TUI:
             else:
                 self.scadas_to_snap.append("")
 
-    def load_statuses(self):
-        self._load_latest("status", "statuses", GtShStatus_Maker)
-
     def load_snaps(self):
-        self._load_latest("snap", "snaps", SnapshotSpaceheat_Maker)
+        self._load_latest("snap", "snaps", SnapshotSpaceheat)
 
     def extract_display_df(self) -> pd.DataFrame:
         if self.settings.scadas:
@@ -331,7 +324,7 @@ class TUI:
             ):
                 path_dbg |= 0x00000002
                 # Check if it is already present
-                if not (self.display_df["MessageId"] == message_id).any():
+                if not (self.display_df["MessageId"] == message_id).any():  # noqa
                     path_dbg |= 0x00000004
                     self.display_df = (
                         pd.concat([self.display_df, row_df])
@@ -353,8 +346,8 @@ class TUI:
         path_dbg = 0
         if (
             not self.read_only
-            and not (self.live_history_df["MessageId"] == message_id).any()
-            and not (self.df["MessageId"] == message_id).any()
+            and not (self.live_history_df["MessageId"] == message_id).any()  # noqa
+            and not (self.df["MessageId"] == message_id).any()  # noqa
         ):
             path_dbg |= 0x00000001
             self.live_history_df = pd.concat(
@@ -368,16 +361,13 @@ class TUI:
     def handle_event(self, message_src: str, event: EventBase) -> None:
         logger.debug("++handle_event")
         if event.TypeName in ["gridworks.event.problem", "gridworks.event.shutdown"]:
-            logger.info(event.json(sort_keys=True, indent=2))
-        row_df = AnyEvent(**event.dict()).as_dataframe(
+            logger.info(event.model_dump_json(indent=2))
+        row_df = AnyEvent(**event.model_dump()).as_dataframe(
             columns=self.df.columns.values, interpolate_summary=True
         )
         self.update_display(message_src, event.MessageId, row_df)
         self.update_live_history(event.MessageId, row_df)
         logger.debug("--handle_event")
-
-    def handle_pwr(self, pwr: GsPwr):
-        pass
 
     def handle_snapshot(self, snap: SnapshotSpaceheat):
         logger.debug("++handle_snapshot")
@@ -397,7 +387,7 @@ class TUI:
                     newer = snap.Snapshot.ReportTimeUnixMs > stored_time
             if newer:
                 path_dbg |= 0x00000004
-                snap_str = json.dumps(snap.dict(), sort_keys=True, indent=2)
+                snap_str = json.dumps(snap.model_dump(), sort_keys=True, indent=2)
                 with snapshot_path.open("w") as f:
                     f.write(snap_str)
                 self.snaps[snap.FromGNodeAlias] = snap
@@ -485,34 +475,13 @@ class TUI:
 
         return Panel(table, title=f"[b]{snap.FromGNodeAlias}", border_style="blue")
 
-    def handle_status(self, status: GtShStatus):
-        try:
-            status_path = self.settings.paths.snap_path(status.FromGNodeAlias)
-            with status_path.open("w") as f:
-                f.write(json.dumps(status.dict(), sort_keys=True, indent=2))
-            self.statuses[status.FromGNodeAlias] = status
-        except Exception as e:
-            logger.exception(f"ERROR handling status: {e}")
-
     def handle_message(self, message: Message):
         logger.debug("++handle_message")
         path_dbg = 0
         match message.Payload:
-            case GsPwr():
-                path_dbg |= 0x00000001
-                self.handle_pwr(message.Payload)
             case SnapshotSpaceheat():
                 path_dbg |= 0x00000002
                 self.handle_snapshot(message.Payload)
-            case GtShStatus():
-                path_dbg |= 0x00000004
-                self.handle_status(message.Payload)
-            case GtShStatusEvent():
-                path_dbg |= 0x00000008
-                self.handle_status(message.Payload.status)
-            case SnapshotSpaceheatEvent():
-                path_dbg |= 0x00000010
-                self.handle_snapshot(message.Payload.snap)
             case EventBase():
                 path_dbg |= 0x00000020
                 self.handle_event(message.src(), message.Payload)
