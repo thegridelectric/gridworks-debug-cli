@@ -3,16 +3,10 @@ import logging
 from typing import Any
 
 import aiomqtt
-from gwproto import CallableDecoder
-from gwproto import Decoders
 from gwproto import Message
 from gwproto import MQTTCodec
-from gwproto import create_message_payload_discriminator
-from gwproto.gs import GsPwr_Maker
+from gwproto import create_message_model
 from gwproto.messages import Problems
-from gwproto.types import GtShStatus_Maker
-from gwproto.types import PowerWatts_Maker
-from gwproto.types import SnapshotSpaceheat_Maker
 from result import Err
 from result import Ok
 from result import Result
@@ -79,29 +73,19 @@ async def run_mqtt_client(
         raise e
 
 
-GWDMessageDecoder = create_message_payload_discriminator(
+GWDMessageDecoder = create_message_model(
     model_name="GWDMessageDecoder",
     module_names=["gwproto.messages"],
 )
 
 
 class GwdMQTTCodec(MQTTCodec):
-    def __init__(self):
-        super().__init__(
-            Decoders.from_objects(
-                [
-                    GtShStatus_Maker,
-                    SnapshotSpaceheat_Maker,
-                    PowerWatts_Maker,
-                ],
-                message_payload_discriminator=GWDMessageDecoder,
-            ).add_decoder(
-                "p", CallableDecoder(lambda decoded: GsPwr_Maker(decoded[0]).tuple)
-            )
-        )
 
-    def validate_source_alias(self, source_alias: str):
+    def validate_source_and_destination(self, src: str, dst: str) -> None:
         """No implementation"""
+
+    def __init__(self):
+        super().__init__(message_model=GWDMessageDecoder)
 
     def decode_mqtt_message(
         self, topic: str, payload: bytes

@@ -3,9 +3,9 @@ from typing import Optional
 
 import xdg
 from pydantic import BaseModel
-from pydantic import BaseSettings
 from pydantic import SecretStr
 from pydantic import validator
+from pydantic_settings import BaseSettings
 
 from gwdcli.utils.settings import RELATIVE_DEBUG_CLI_PATH
 from gwdcli.utils.settings import S3Settings

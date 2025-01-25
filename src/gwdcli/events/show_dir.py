@@ -25,7 +25,7 @@ def show_dir(directory: str = "", src: str = "", n: int = 0):
     )
     console.print(f"Found {len(parsed_events)} files parseable as events.")
     df = AnyEvent.to_dataframe(
-        parsed_events, columns=["TimeNS", "TypeName", "Src", "other_fields"]
+        parsed_events, columns=["TimeCreatedMs", "TypeName", "Src", "other_fields"]
     )
     if src:
         df = df.loc[df["Src"] == src]
