@@ -77,6 +77,12 @@ def show(
         None,
         help="Screen updates per second. Higher rates may cause flickering on some terminals.",
     ),
+    days: Optional[int] = typer.Option(
+        None,
+        "-d",
+        "--days",
+        help="Days to download. Overrides 'num_dirs_to_sync' in config file.",
+    ),
 ):
     """Live display of incoming scada events and status
 
@@ -100,9 +106,12 @@ def show(
         no_sync = True
     if not settings.snaps:
         settings.snaps = settings.scadas[:]
+    if days is not None:
+        settings.sync.num_dirs_to_sync = days
     if clean:
         rich.print(f"Deleting {settings.paths.data_dir}")
-        shutil.rmtree(settings.paths.data_dir)
+        if settings.paths.data_dir.exists():
+            shutil.rmtree(settings.paths.data_dir)
     if updates_per_second is not None:
         settings.tui.updates_per_second = updates_per_second
     run(show_main, settings, Console(), not no_sync, not no_mqtt, read_only)
@@ -142,7 +151,7 @@ def mkconfig(
             rich.print(f"Creating default config at {config_path}")
         Paths(config_path=config_path).mkdirs()
         with config_path.open("w") as f:
-            f.write(EventsSettings().json(sort_keys=True, indent=2) + "\n")
+            f.write(EventsSettings().model_dump_json(indent=2) + "\n")
         rich.print("Created:")
         settings = EventsSettings.load(config_path)
         rich.print(settings)
@@ -156,7 +165,8 @@ def clean(
     """Delete the _entire_ events data directory"""
     settings = EventsSettings.load(config_path)
     rich.print(f"Deleting {settings.paths.data_dir}")
-    shutil.rmtree(settings.paths.data_dir)
+    if settings.paths.data_dir.exists():
+        shutil.rmtree(settings.paths.data_dir)
 
 
 # noinspection PyUnusedLocal
@@ -183,7 +193,7 @@ async def show_main(
         "\n\n+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
     )
     logger.info("Starting gwd events show")
-    logger.info(settings.json(sort_keys=True, indent=2))
+    logger.info(settings.model_dump_json(indent=2))
     async_queue = asyncio.Queue()
     async with create_task_group() as tg:
         tui = TUI(settings, read_only=read_only)

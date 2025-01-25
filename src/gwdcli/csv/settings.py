@@ -3,8 +3,8 @@ from pathlib import Path
 import xdg
 from pendulum import DateTime
 from pydantic import BaseModel
-from pydantic import BaseSettings
 from pydantic import validator
+from pydantic_settings import BaseSettings
 from yarl import URL
 
 from gwdcli.utils.settings import RELATIVE_DEBUG_CLI_PATH
