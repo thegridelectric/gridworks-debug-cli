@@ -19,6 +19,7 @@ import pandas as pd
 from anyio import to_thread
 from gwproto import Message
 from gwproto.messages import EventBase
+from gwproto.messages import ReportEvent
 from gwproto.named_types import SnapshotSpaceheat
 from pydantic import BaseModel
 from rich.console import RenderableType
@@ -104,6 +105,14 @@ class HoneywellThermostatOperatingState(Enum):
     vent_economizer = 4
     cooling = 5
     fan_only = 6
+
+
+UNDISPLAYED_EVENTS = {
+    SnapshotSpaceheat.model_fields["TypeName"].default,
+    ReportEvent.model_fields["TypeName"].default,
+    "gridworks.event.gt.sh.status",
+    "gridworks.event.snapshot.spaceheat",
+}
 
 
 class TUI:
@@ -200,6 +209,7 @@ class TUI:
             filtered_df = self.df[self.df["Src"].isin(srcs_used)]
         else:
             filtered_df = self.df
+        filtered_df = filtered_df[~filtered_df["TypeName"].isin(UNDISPLAYED_EVENTS)]
         return filtered_df.tail(self.settings.tui.displayed_events)
 
     def reload_dfs(self):
@@ -322,15 +332,18 @@ class TUI:
                 or row_df.index[0] >= self.display_df.index[0]
             ):
                 path_dbg |= 0x00000002
-                # Check if it is already present
-                if not (self.display_df["MessageId"] == message_id).any():  # noqa
+                # Check if excluded by TypeName
+                if not row_df["TypeName"].isin(UNDISPLAYED_EVENTS):
                     path_dbg |= 0x00000004
-                    self.display_df = (
-                        pd.concat([self.display_df, row_df])
-                        .sort_index()
-                        .tail(self.settings.tui.displayed_events)
-                    )
-                    self.layout["events"].update(self.make_event_table())
+                    # Check if it is already present
+                    if not (self.display_df["MessageId"] == message_id).any():  # noqa
+                        path_dbg |= 0x00000008
+                        self.display_df = (
+                            pd.concat([self.display_df, row_df])
+                            .sort_index()
+                            .tail(self.settings.tui.displayed_events)
+                        )
+                        self.layout["events"].update(self.make_event_table())
         logger.debug(f"--update_display: 0x{path_dbg:08X}")
 
     def flush_live_history(self):
