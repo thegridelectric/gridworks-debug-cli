@@ -10,14 +10,13 @@ from gwproto.messages import CommEvent
 from gwproto.messages import EventBase
 from gwproto.messages import ProblemEvent
 from pydantic import BaseModel
-from pydantic import Extra
 from pydantic import ValidationError
 from result import Err
 from result import Ok
 from result import Result
 
 
-class AnyEvent(EventBase, extra=Extra.allow):
+class AnyEvent(EventBase, extra="allow"):
     TypeName: str
     _message_src: str = ""
 
@@ -26,9 +25,9 @@ class AnyEvent(EventBase, extra=Extra.allow):
         return self._message_src
 
     def other_fields(self) -> dict:
-        exclude = set(EventBase.__fields__.keys())
+        exclude = set(EventBase.model_fields.keys())
         exclude.add("_message_src")
-        return self.dict(exclude=exclude)
+        return self.model_dump(exclude=exclude)
 
     def as_pandas_record(
         self,
@@ -38,10 +37,14 @@ class AnyEvent(EventBase, extra=Extra.allow):
         interpolate_summary: bool = False,
         src_from_message: bool = True,
     ) -> dict:
-        d = self.dict(include=EventBase.__fields__.keys())
+        d = self.model_dump(include=set(self.model_fields.keys()))
         if src_from_message and self._message_src:
             d["Src"] = self._message_src
-        d["TimeNS"] = pd.Timestamp(self.TimeNS, unit="ns", tz="UTC")
+        if hasattr(self, "TimeNS"):
+            time_created_ms = self.TimeNS / 1000000
+        else:
+            time_created_ms = self.TimeCreatedMs
+        d["TimeCreatedMs"] = pd.Timestamp(time_created_ms, unit="ms", tz="UTC")
         if explicit_summary:
             d[other_field_name] = explicit_summary
         else:
@@ -69,17 +72,17 @@ class AnyEvent(EventBase, extra=Extra.allow):
         src_from_message: bool = True,
     ) -> pd.DataFrame:
         if columns is None:
-            columns = ["TimeNS", "TypeName", "Src", "other_fields"]
+            columns = ["TimeCreatedMs", "TypeName", "Src", "other_fields"]
         row_dict = self.as_pandas_record(
             explicit_summary=explicit_summary,
             interpolate_summary=interpolate_summary,
             src_from_message=src_from_message,
         )
-        time_ns = row_dict.pop("TimeNS")
+        time_ns = row_dict.pop("TimeCreatedMs")
         return pd.DataFrame(
             {col: [val] for col, val in row_dict.items()},
             columns=columns,
-            index=pd.DatetimeIndex([time_ns], name="TimeNS"),
+            index=pd.DatetimeIndex([time_ns], name="TimeCreatedMs"),
         )
 
     @classmethod
@@ -94,7 +97,7 @@ class AnyEvent(EventBase, extra=Extra.allow):
             Ok(AnyEvent) or Err(ValidationError)
         """
         try:
-            return Ok(AnyEvent.parse_obj(d))
+            return Ok(AnyEvent.model_validate(d))
         except ValidationError as e:
             return Err(e)
 
@@ -119,7 +122,7 @@ class AnyEvent(EventBase, extra=Extra.allow):
             src = d.get("Header", dict()).get("Src", "")
             if src:
                 d["Src"] = src
-            m = Message.parse_obj(d)
+            m = Message.model_validate(d)
 
             if m.Header.MessageType.startswith("gridworks.event"):
                 result = cls.from_event_dict(m.Payload)
@@ -199,7 +202,7 @@ class AnyEvent(EventBase, extra=Extra.allow):
                 ):
                     raise error
         if sort:
-            events = sorted(events, key=lambda event: event.TimeNS)
+            events = sorted(events, key=lambda event: event.TimeCreatedMs)
         return events
 
     @classmethod
@@ -219,7 +222,7 @@ class AnyEvent(EventBase, extra=Extra.allow):
                 )
                 for e in events
             ],
-            index="TimeNS",
+            index="TimeCreatedMs",
             **kwargs
         )
         if sort_index:

@@ -1,5 +1,7 @@
 import asyncio
+import functools
 import logging
+import traceback
 from pathlib import Path
 from subprocess import CalledProcessError  # noqa: S404
 from typing import Optional
@@ -26,6 +28,9 @@ from gwdcli.events.settings import EventsSettings
 from gwdcli.events.settings import S3Settings
 
 
+logger = logging.getLogger("gwd.events")
+
+
 async def get_eventstore_subdirs(settings: S3Settings, **s3_client_args) -> list[str]:
     dirs = []
     session = AioSession(profile=settings.profile)
@@ -45,7 +50,7 @@ async def get_eventstore_subdirs(settings: S3Settings, **s3_client_args) -> list
             dirs.extend(
                 [
                     Path(entry["Prefix"]).name
-                    for entry in result.get("CommonPrefixes", [])
+                    for entry in result.get("CommonPrefixes", [])  # noqa
                 ]
             )
             continuation_token = result.get("NextContinuationToken", "")
@@ -90,9 +95,10 @@ def generate_directory_csv(
             sort=True,
             ignore_validation_errors=True,
             excludes=[
-                ReportEvent.type_name(),
-                SnapshotSpaceheat.type_name(),
+                ReportEvent.model_fields["TypeName"].default,
+                SnapshotSpaceheat.model_fields["TypeName"].default,
                 "remaining.elec.event",
+                "gt.sh.status",
             ],
         )
         if parsed_events:
@@ -102,7 +108,10 @@ def generate_directory_csv(
                 df.to_csv(main_csv_path)
             else:
                 main_df = pd.read_csv(
-                    main_csv_path, index_col="TimeCreatedMS", parse_dates=True
+                    main_csv_path,
+                    index_col="TimeCreatedMs",
+                    parse_dates=True,
+                    date_parser=functools.partial(pd.to_datetime, utc=True),
                 )
                 main_ids = set(main_df["MessageId"].index)
                 directory_ids = set(df["MessageId"].index)
@@ -113,13 +122,21 @@ def generate_directory_csv(
         else:
             df = None
     except Exception as e:
-        return Err(e)
+        return Err(
+            ValueError(
+                f"generate_directory_csv({src_directory_path}) "
+                f"caught exception {e}:\n"
+                f"{traceback.format_exc()}"
+            )
+        )
     return Ok(df)
 
 
 async def sync_dir_and_generate_csv(
     settings: EventsSettings, subdir: str, queue: asyncio.Queue
 ):
+    logger.info(f"++sync_dir_and_generate_csv: <{subdir}>")
+    path_dbg = 0
     s3 = settings.sync.s3
     synced_key = s3.synced_key(subdir)
     queue.put_nowait(GWDEvent(event=SyncStartEvent(synced_key=synced_key)))
@@ -130,12 +147,12 @@ async def sync_dir_and_generate_csv(
         dest_base_path=settings.paths.data_dir,
         region=s3.region,
     )
-    logging.getLogger("gwd.events").info(
-        f"Running: aws sync command:\n  {' '.join(sync_cmd)}"
-    )
+    logger.info(f"Running: aws sync command:\n  {' '.join(sync_cmd)}")
+    path_dbg |= 0x00000001
     try:
         await run_process(sync_cmd)
     except CalledProcessError as e:
+        path_dbg |= 0x00000002
         queue.put_nowait(
             GWDEvent(
                 event=ProblemEvent(
@@ -145,27 +162,45 @@ async def sync_dir_and_generate_csv(
                 )
             )
         )
-        return
-    csv_path = settings.paths.subdir_csv_path(subdir)
-    result = await to_process.run_sync(
-        generate_directory_csv,
-        settings.paths.data_subdir(subdir),
-        csv_path,
-        settings.paths.csv_path,
-    )
-    if result.is_ok():
-        queue.put_nowait(
-            GWDEvent(event=SyncCompleteEvent(synced_key=synced_key, csv_path=csv_path))
-        )
     else:
-        queue.put_nowait(
-            GWDEvent(
-                event=ProblemEvent(
-                    ProblemType=Problems.error,
-                    Summary=f"ERROR in generate_directory_csv: {result.value}",
-                )
+        path_dbg |= 0x00000004
+        csv_path = settings.paths.subdir_csv_path(subdir)
+        try:
+            result = await to_process.run_sync(
+                generate_directory_csv,
+                settings.paths.data_subdir(subdir),
+                csv_path,
+                settings.paths.csv_path,
             )
-        )
+            logger.info(f"result generate_directory_csv <{subdir}>: {result.is_ok()}")
+            if result.is_ok():
+                path_dbg |= 0x00000008
+                queue.put_nowait(
+                    GWDEvent(
+                        event=SyncCompleteEvent(
+                            synced_key=synced_key, csv_path=csv_path
+                        )
+                    )
+                )
+            else:
+                path_dbg |= 0x00000010
+                logger.info(
+                    f"result generate_directory_csv <{subdir}> error value: {result.err()}"
+                )
+                logger.exception(result.err())
+                queue.put_nowait(
+                    GWDEvent(
+                        event=ProblemEvent(
+                            ProblemType=Problems.error,
+                            Summary=f"ERROR in generate_directory_csv: {result.value}",
+                        )
+                    )
+                )
+        except Exception as e:
+            path_dbg |= 0x00000020
+            logger.info(f"Caught exception from generate_directory_csv <{subdir}>: {e}")
+            logger.exception(e)
+    logger.info(f"--sync_dir_and_generate_csv: <{subdir}>  path:0x{path_dbg:08X}")
 
 
 async def sync(settings: EventsSettings, queue: asyncio.Queue) -> None:

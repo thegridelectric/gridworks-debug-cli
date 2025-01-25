@@ -18,7 +18,6 @@ from typing import Type
 import pandas as pd
 from anyio import to_thread
 from gwproto import Message
-from gwproto.enums import TelemetryName
 from gwproto.messages import EventBase
 from gwproto.named_types import SnapshotSpaceheat
 from pydantic import BaseModel
@@ -129,13 +128,13 @@ class TUI:
         if self.settings.paths.csv_path.exists():
             self.df = pd.read_csv(
                 self.settings.paths.csv_path,
-                index_col="TimeNS",
+                index_col="TimeCreatedMs",
                 parse_dates=True,
                 date_parser=functools.partial(pd.to_datetime, utc=True),
             )
         else:
             self.df = pd.DataFrame(
-                index=pd.DatetimeIndex([], name="TimeNS"),
+                index=pd.DatetimeIndex([], name="TimeCreatedMs"),
                 columns=["MessageId", "Src", "TypeName", "other_fields"],
             )
             self.df.to_csv(self.settings.paths.csv_path)
@@ -206,7 +205,7 @@ class TUI:
     def reload_dfs(self):
         self.df = pd.read_csv(
             self.settings.paths.csv_path,
-            index_col="TimeNS",
+            index_col="TimeCreatedMs",
             parse_dates=True,
             date_parser=functools.partial(pd.to_datetime, utc=True),
         )
@@ -384,7 +383,7 @@ class TUI:
                     stored_time = snap_dict.get("Snapshot", dict()).get(
                         "ReportTimeUnixMs", 0
                     )
-                    newer = snap.Snapshot.ReportTimeUnixMs > stored_time
+                    newer = snap.SnapshotTimeUnixMs > stored_time
             if newer:
                 path_dbg |= 0x00000004
                 snap_str = json.dumps(snap.model_dump(), sort_keys=True, indent=2)
@@ -399,8 +398,8 @@ class TUI:
                         self.layout[f"snap{idx}"].update(
                             self.make_snapshot(snap.FromGNodeAlias)
                         )
-                logger.info(f"Snapshot from {snap.FromGNodeAlias}:")
-                logger.info(snap_str)
+                logger.debug(f"Snapshot from {snap.FromGNodeAlias}:")
+                logger.debug(snap_str)
         except Exception as e:
             path_dbg |= 0x00000020
             logger.exception(f"ERROR handling snapshot: {e}")
@@ -411,7 +410,7 @@ class TUI:
             return Panel("", border_style="blue")
         snap = self.snaps[name]
         report_time = (
-            pd.Timestamp(snap.Snapshot.ReportTimeUnixMs, unit="ms", tz="UTC")
+            pd.Timestamp(snap.SnapshotTimeUnixMs, unit="ms", tz="UTC")
             .tz_convert(self.local_tz)
             .strftime("%Y-%m-%d %X")
         )
@@ -426,53 +425,58 @@ class TUI:
             Column("Unit", header_style="orchid1", style="orchid1"),
             title=f"\nSnapshot at [green]{report_time}",
         )
-        for i in range(len(snap.Snapshot.AboutNodeAliasList)):
-            telemetry_name = snap.Snapshot.TelemetryNameList[i]
-            if (
-                telemetry_name == TelemetryName.WaterTempCTimes1000
-                or telemetry_name == TelemetryName.WaterTempCTimes1000.value
-                or telemetry_name == TelemetryName.AirTempCTimes1000
-                or telemetry_name == TelemetryName.AirTempCTimes1000.value
-            ):
-                centigrade = snap.Snapshot.ValueList[i] / 1000
-                if self.settings.tui.c_to_f:
-                    value_str = f"{(centigrade * 9/5) + 32:5.2f}"
-                    unit = "F"
-                else:
-                    value_str = f"{centigrade:5.2f}"
-                    unit = "C"
-            elif (
-                telemetry_name == TelemetryName.WaterTempFTimes1000
-                or telemetry_name == TelemetryName.WaterTempFTimes1000.value
-                or telemetry_name == TelemetryName.AirTempFTimes1000
-                or telemetry_name == TelemetryName.AirTempFTimes1000.value
-            ):
-                value_str = f"{snap.Snapshot.ValueList[i] / 1000:5.2f}"
-                unit = "F"
-            elif (
-                telemetry_name == TelemetryName.GallonsTimes100
-                or telemetry_name == TelemetryName.GallonsTimes100.value
-            ):
-                value_str = f"{snap.Snapshot.ValueList[i] / 100:5.2f}"
-                unit = "Gallons"
-            elif (
-                telemetry_name == TelemetryName.ThermostatState
-                or telemetry_name == TelemetryName.ThermostatState.value
-            ):
-                try:
-                    state_enum = HoneywellThermostatOperatingState(
-                        snap.Snapshot.ValueList[i]
-                    )
-                    enum_str = state_enum.name
-                except:  # noqa
-                    enum_str = "UNKNOWN"
-                value_str = f"{enum_str} / {snap.Snapshot.ValueList[i]}"
-                unit = "Heat State"
-            else:
-                value_str = f"{snap.Snapshot.ValueList[i]}"
-                unit = snap.Snapshot.TelemetryNameList[i].value
-            table.add_row(snap.Snapshot.AboutNodeAliasList[i], value_str, unit)
-
+        for i in range(len(snap.LatestReadingList)):
+            # requires access to channel list
+            # telemetry_name = snap.Snapshot.TelemetryNameList[i]
+            # if (
+            #     telemetry_name == TelemetryName.WaterTempCTimes1000
+            #     or telemetry_name == TelemetryName.WaterTempCTimes1000.value
+            #     or telemetry_name == TelemetryName.AirTempCTimes1000
+            #     or telemetry_name == TelemetryName.AirTempCTimes1000.value
+            # ):
+            #     centigrade = snap.Snapshot.ValueList[i] / 1000
+            #     if self.settings.tui.c_to_f:
+            #         value_str = f"{(centigrade * 9/5) + 32:5.2f}"
+            #         unit = "F"
+            #     else:
+            #         value_str = f"{centigrade:5.2f}"
+            #         unit = "C"
+            # elif (
+            #     telemetry_name == TelemetryName.WaterTempFTimes1000
+            #     or telemetry_name == TelemetryName.WaterTempFTimes1000.value
+            #     or telemetry_name == TelemetryName.AirTempFTimes1000
+            #     or telemetry_name == TelemetryName.AirTempFTimes1000.value
+            # ):
+            #     value_str = f"{snap.Snapshot.ValueList[i] / 1000:5.2f}"
+            #     unit = "F"
+            # elif (
+            #     telemetry_name == TelemetryName.GallonsTimes100
+            #     or telemetry_name == TelemetryName.GallonsTimes100.value
+            # ):
+            #     value_str = f"{snap.Snapshot.ValueList[i] / 100:5.2f}"
+            #     unit = "Gallons"
+            # elif (
+            #     telemetry_name == TelemetryName.ThermostatState
+            #     or telemetry_name == TelemetryName.ThermostatState.value
+            # ):
+            #     try:
+            #         state_enum = HoneywellThermostatOperatingState(
+            #             snap.Snapshot.ValueList[i]
+            #         )
+            #         enum_str = state_enum.name
+            #     except:  # noqa
+            #         enum_str = "UNKNOWN"
+            #     value_str = f"{enum_str} / {snap.Snapshot.ValueList[i]}"
+            #     unit = "Heat State"
+            # else:
+            #     value_str = f"{snap.Snapshot.ValueList[i]}"
+            #     unit = snap.Snapshot.TelemetryNameList[i].value
+            # table.add_row(snap.Snapshot.AboutNodeAliasList[i], value_str, unit)
+            table.add_row(
+                snap.LatestReadingList[i].ChannelName,
+                f"{snap.LatestReadingList[i].Value}",
+                "?",
+            )
         return Panel(table, title=f"[b]{snap.FromGNodeAlias}", border_style="blue")
 
     def handle_message(self, message: Message):
