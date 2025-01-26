@@ -333,7 +333,7 @@ class TUI:
             ):
                 path_dbg |= 0x00000002
                 # Check if excluded by TypeName
-                if not row_df["TypeName"].isin(UNDISPLAYED_EVENTS):
+                if row_df["TypeName"][0] not in UNDISPLAYED_EVENTS:
                     path_dbg |= 0x00000004
                     # Check if it is already present
                     if not (self.display_df["MessageId"] == message_id).any():  # noqa
